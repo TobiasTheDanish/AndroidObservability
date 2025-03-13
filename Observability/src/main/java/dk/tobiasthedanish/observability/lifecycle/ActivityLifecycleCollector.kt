@@ -2,6 +2,7 @@ package dk.tobiasthedanish.observability.lifecycle
 
 import android.app.Activity
 import android.os.Bundle
+import dk.tobiasthedanish.observability.collector.Collector
 import dk.tobiasthedanish.observability.events.EventTracker
 import dk.tobiasthedanish.observability.events.EventTypes
 import dk.tobiasthedanish.observability.time.TimeProvider
@@ -10,12 +11,12 @@ internal class ActivityLifecycleCollector(
     private val lifecycleManager: LifecycleManager,
     private val eventTracker: EventTracker,
     private val timeProvider: TimeProvider,
-): ActivityLifecycleListener {
-    fun register() {
+): ActivityLifecycleListener, Collector {
+    override fun register() {
         lifecycleManager.addListener(this)
     }
 
-    fun unregister() {
+    override fun unregister() {
         lifecycleManager.removeListener(this)
     }
 

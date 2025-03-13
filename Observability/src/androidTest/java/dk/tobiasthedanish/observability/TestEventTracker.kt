@@ -3,6 +3,7 @@ package dk.tobiasthedanish.observability
 import dk.tobiasthedanish.observability.events.EventTracker
 import org.jetbrains.annotations.TestOnly
 
+@TestOnly
 class TestEventTracker: EventTracker {
     private val trackingMap = HashMap<String, MutableList<Any>>()
 
@@ -24,5 +25,10 @@ class TestEventTracker: EventTracker {
         trackingMap[type]?.clear()
 
         return res
+    }
+
+    @TestOnly
+    fun clear() {
+        trackingMap.clear()
     }
 }

@@ -11,6 +11,9 @@
       <SelectionState runConfigName="LifecycleEventsTest">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+      <SelectionState runConfigName="activityLifecycleEventsTest()">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
     </selectionStates>
   </component>
 </project>

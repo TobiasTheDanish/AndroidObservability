@@ -14,3 +14,13 @@ internal object ActivityLifecycleEventType {
     const val PAUSED: String = "paused"
     const val DESTROYED: String = "destroyed"
 }
+
+@Serializable
+internal data class AppLifecycleEvent(
+    val type: String,
+)
+
+internal object AppLifecycleEventType {
+    const val FOREGROUND: String = "foreground"
+    const val BACKGROUND: String = "background"
+}
