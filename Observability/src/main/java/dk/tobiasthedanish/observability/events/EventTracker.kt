@@ -8,8 +8,11 @@ internal interface EventTracker {
     )
 }
 
-internal class EventTrackerImpl(): EventTracker {
+internal class EventTrackerImpl(
+    private val eventStore: EventStore,
+): EventTracker {
     override fun <T: Any> track(data: T, timeStamp: Long, type: String) {
-        TODO("Not yet implemented")
+        val event = Event(data, type, timeStamp)
+        eventStore.store(event)
     }
 }

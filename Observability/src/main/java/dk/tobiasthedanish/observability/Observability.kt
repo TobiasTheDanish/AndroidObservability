@@ -2,6 +2,7 @@ package dk.tobiasthedanish.observability
 
 import android.app.Application
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Observability {
@@ -22,11 +23,22 @@ object Observability {
 
     @JvmStatic
     fun start() {
-        observability.start()
+        if (isInitialized.get())
+            observability.start()
     }
 
     @JvmStatic
     fun stop() {
-        observability.stop()
+        if (isInitialized.get())
+            observability.stop()
+    }
+
+    @VisibleForTesting
+    internal fun initInstrumentationTest(configInternal: ObservabilityConfigInternal) {
+        if (isInitialized.compareAndSet(false, true)) {
+            observability = ObservabilityInternal(configInternal)
+            observability.init()
+            this.start()
+        }
     }
 }

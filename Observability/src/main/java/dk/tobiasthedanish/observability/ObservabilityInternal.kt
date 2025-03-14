@@ -1,11 +1,16 @@
 package dk.tobiasthedanish.observability
 
 import android.app.Application
+import dk.tobiasthedanish.observability.cleanup.CleanupService
+import dk.tobiasthedanish.observability.cleanup.CleanupServiceImpl
+import dk.tobiasthedanish.observability.events.EventStore
+import dk.tobiasthedanish.observability.events.EventStoreImpl
 import dk.tobiasthedanish.observability.events.EventTracker
 import dk.tobiasthedanish.observability.events.EventTrackerImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
+import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
 import dk.tobiasthedanish.observability.time.TimeProvider
@@ -16,11 +21,14 @@ internal interface ObservabilityConfigInternal {
     val activityLifecycleCollector: ActivityLifecycleCollector
     val appLifecycleCollector: AppLifecycleCollector
     val unhandledExceptionCollector: UnhandledExceptionCollector
+    val cleanupService: CleanupService
 }
 
 internal class ObservabilityConfigInternalImpl(application: Application) :
     ObservabilityConfigInternal {
-    private val eventTracker: EventTracker = EventTrackerImpl()
+    private val eventStore: EventStore = EventStoreImpl()
+    private val eventTracker: EventTracker = EventTrackerImpl(eventStore)
+    override val cleanupService: CleanupService = CleanupServiceImpl(eventStore)
     override val timeProvider: TimeProvider = AndroidTimeProvider()
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
     override val activityLifecycleCollector: ActivityLifecycleCollector =
@@ -40,16 +48,18 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     )
 }
 
-internal class ObservabilityInternal(config: ObservabilityConfigInternal) {
+internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLifecycleListener {
     private val lifecycleManager by lazy { config.lifecycleManager }
     private val activityLifecycleCollector by lazy { config.activityLifecycleCollector }
     private val appLifecycleCollector by lazy { config.appLifecycleCollector }
     private val unhandledExceptionCollector by lazy { config.unhandledExceptionCollector }
+    private val cleanupService by lazy { config.cleanupService }
 
     private var isStarted: Boolean = false
     private val startLock = Any()
 
     fun init() {
+        lifecycleManager.addListener(this)
         lifecycleManager.register()
     }
 
@@ -71,6 +81,18 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal) {
                 appLifecycleCollector.unregister()
                 unhandledExceptionCollector.unregister()
                 isStarted = false
+            }
+        }
+    }
+
+    override fun onAppForeground() {
+        // maybe do something at some point
+    }
+
+    override fun onAppBackground() {
+        synchronized(startLock) {
+            if (isStarted) {
+                cleanupService.clearData()
             }
         }
     }
