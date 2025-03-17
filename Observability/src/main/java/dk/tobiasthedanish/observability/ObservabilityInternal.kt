@@ -1,8 +1,8 @@
 package dk.tobiasthedanish.observability
 
 import android.app.Application
-import dk.tobiasthedanish.observability.cleanup.CleanupService
-import dk.tobiasthedanish.observability.cleanup.CleanupServiceImpl
+import dk.tobiasthedanish.observability.utils.CleanupService
+import dk.tobiasthedanish.observability.utils.CleanupServiceImpl
 import dk.tobiasthedanish.observability.events.EventStore
 import dk.tobiasthedanish.observability.events.EventStoreImpl
 import dk.tobiasthedanish.observability.events.EventTracker
@@ -12,10 +12,22 @@ import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
+import dk.tobiasthedanish.observability.session.SessionManager
+import dk.tobiasthedanish.observability.session.SessionManagerImpl
+import dk.tobiasthedanish.observability.session.SessionStore
+import dk.tobiasthedanish.observability.session.SessionStoreImpl
+import dk.tobiasthedanish.observability.session.dataStore
+import dk.tobiasthedanish.observability.storage.Database
+import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
 import dk.tobiasthedanish.observability.time.TimeProvider
+import dk.tobiasthedanish.observability.utils.IdFactory
+import dk.tobiasthedanish.observability.utils.IdFactoryImpl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 internal interface ObservabilityConfigInternal {
+    val sessionManager: SessionManager
     val timeProvider: TimeProvider
     val lifecycleManager: LifecycleManager
     val activityLifecycleCollector: ActivityLifecycleCollector
@@ -26,10 +38,25 @@ internal interface ObservabilityConfigInternal {
 
 internal class ObservabilityConfigInternalImpl(application: Application) :
     ObservabilityConfigInternal {
-    private val eventStore: EventStore = EventStoreImpl()
-    private val eventTracker: EventTracker = EventTrackerImpl(eventStore)
-    override val cleanupService: CleanupService = CleanupServiceImpl(eventStore)
+    private val database: Database = DatabaseImpl(application)
+    private val idFactory: IdFactory = IdFactoryImpl()
+    private val eventStore: EventStore = EventStoreImpl(database, idFactory)
+    private val sessionStore: SessionStore = SessionStoreImpl(
+        dataStore = application.dataStore,
+        externalScope = CoroutineScope(Dispatchers.IO)
+    )
     override val timeProvider: TimeProvider = AndroidTimeProvider()
+    override val sessionManager: SessionManager = SessionManagerImpl(
+        timeProvider = timeProvider,
+        idFactory = idFactory,
+        sessionStore = sessionStore,
+        db = database,
+    )
+    private val eventTracker: EventTracker = EventTrackerImpl(
+        eventStore = eventStore,
+        sessionManager = sessionManager
+    )
+    override val cleanupService: CleanupService = CleanupServiceImpl(eventStore)
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
     override val activityLifecycleCollector: ActivityLifecycleCollector =
         ActivityLifecycleCollector(
@@ -49,6 +76,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 }
 
 internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLifecycleListener {
+    private val sessionManager by lazy { config.sessionManager }
     private val lifecycleManager by lazy { config.lifecycleManager }
     private val activityLifecycleCollector by lazy { config.activityLifecycleCollector }
     private val appLifecycleCollector by lazy { config.appLifecycleCollector }
@@ -59,6 +87,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val startLock = Any()
 
     fun init() {
+        sessionManager.init()
         lifecycleManager.addListener(this)
         lifecycleManager.register()
     }
@@ -86,10 +115,18 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     }
 
     override fun onAppForeground() {
-        // maybe do something at some point
+        sessionManager.onAppForeground()
+/*
+        synchronized(startLock) {
+            if (isStarted) {
+                // Exporter is useful here
+            }
+        }
+*/
     }
 
     override fun onAppBackground() {
+        sessionManager.onAppBackground()
         synchronized(startLock) {
             if (isStarted) {
                 cleanupService.clearData()

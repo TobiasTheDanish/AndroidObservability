@@ -10,8 +10,17 @@ import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
+import dk.tobiasthedanish.observability.session.SessionManager
+import dk.tobiasthedanish.observability.session.SessionManagerImpl
+import dk.tobiasthedanish.observability.session.SessionStoreImpl
+import dk.tobiasthedanish.observability.session.dataStore
+import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
 import dk.tobiasthedanish.observability.time.TimeProvider
+import dk.tobiasthedanish.observability.utils.IdFactory
+import dk.tobiasthedanish.observability.utils.IdFactoryImpl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 internal class LifecycleEventsTestRunner {
     private val instrumentation: Instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -24,6 +33,19 @@ internal class LifecycleEventsTestRunner {
         val config = object : ObservabilityConfigInternal {
             override val cleanupService: CleanupService = CleanupServiceImpl(testEventTracker)
             override val timeProvider: TimeProvider = AndroidTimeProvider()
+            private val idFactory: IdFactory = IdFactoryImpl()
+            private val sessionStore = SessionStoreImpl(
+                application.dataStore,
+                CoroutineScope(Dispatchers.IO)
+            )
+            private val database = DatabaseImpl(application)
+
+            override val sessionManager: SessionManager = SessionManagerImpl(
+                timeProvider = timeProvider,
+                idFactory = idFactory,
+                sessionStore = sessionStore,
+                db = database,
+            )
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
             override val activityLifecycleCollector: ActivityLifecycleCollector = ActivityLifecycleCollector(
                 lifecycleManager = lifecycleManager,
