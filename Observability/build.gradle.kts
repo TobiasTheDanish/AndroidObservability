@@ -46,6 +46,8 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.material3.android)
 
+    implementation(libs.androidx.datastore.preferences)
+
     testImplementation(libs.junit)
 
     androidTestImplementation(libs.androidx.activity.compose)
