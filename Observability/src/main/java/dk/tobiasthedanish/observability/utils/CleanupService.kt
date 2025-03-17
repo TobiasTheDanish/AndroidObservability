@@ -1,4 +1,4 @@
-package dk.tobiasthedanish.observability.cleanup
+package dk.tobiasthedanish.observability.utils
 
 import dk.tobiasthedanish.observability.events.EventStore
 

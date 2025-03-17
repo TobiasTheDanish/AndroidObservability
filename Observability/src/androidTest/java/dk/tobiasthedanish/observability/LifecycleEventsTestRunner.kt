@@ -4,8 +4,8 @@ import android.app.Application
 import android.app.Instrumentation
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import dk.tobiasthedanish.observability.cleanup.CleanupService
-import dk.tobiasthedanish.observability.cleanup.CleanupServiceImpl
+import dk.tobiasthedanish.observability.utils.CleanupService
+import dk.tobiasthedanish.observability.utils.CleanupServiceImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
