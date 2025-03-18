@@ -21,7 +21,7 @@ internal class TestEventTracker: EventTracker, EventStore {
             is AppLifecycleEvent -> _eventsEncountered.add(data.type)
             else -> _eventsEncountered.add(type)
         }
-        val event = Event(data, type, timeStamp)
+        val event = Event(data, type, timeStamp, "")
         store(event)
     }
 

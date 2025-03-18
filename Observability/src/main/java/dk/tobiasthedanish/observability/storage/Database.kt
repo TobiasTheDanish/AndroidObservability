@@ -18,7 +18,7 @@ internal interface Database {
 
 private const val TAG = "DatabaseImpl"
 
-internal class DatabaseImpl(
+internal open class DatabaseImpl(
     context: Context,
 ): SQLiteOpenHelper(
     context,
@@ -37,6 +37,12 @@ internal class DatabaseImpl(
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
         // Currently not needed
+    }
+
+    override fun onConfigure(db: SQLiteDatabase) {
+        super.onConfigure(db)
+
+        db.setForeignKeyConstraintsEnabled(true)
     }
 
     override fun createSession(session: SessionEntity) {
