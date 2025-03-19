@@ -11,20 +11,23 @@ internal interface Database {
     fun createSession(session: SessionEntity)
     fun getSession(sessionId: String): SessionEntity?
     fun setSessionCrashed(sessionId: String)
+    fun setSessionExported(sessionId: String)
 
     fun createEvent(event: EventEntity)
     fun getEvent(eventId: String): EventEntity?
+
+    fun deleteExportedSessions()
 }
 
 private const val TAG = "DatabaseImpl"
 
-internal open class DatabaseImpl(
+internal class DatabaseImpl(
     context: Context,
 ): SQLiteOpenHelper(
     context,
     Constants.DB.NAME,
     null,
-    Constants.DB.Versions.V1,
+    Constants.DB.Versions.V2,
 ), Database {
     override fun onCreate(db: SQLiteDatabase) {
         try {
@@ -35,8 +38,8 @@ internal open class DatabaseImpl(
         }
     }
 
-    override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        // Currently not needed
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        DBMigration.run(db, oldVersion, newVersion)
     }
 
     override fun onConfigure(db: SQLiteDatabase) {
@@ -51,6 +54,7 @@ internal open class DatabaseImpl(
                 put(Constants.DB.SessionTable.COL_ID, session.id)
                 put(Constants.DB.SessionTable.COL_CREATED_AT, session.createdAt)
                 put(Constants.DB.SessionTable.COL_CRASHED, if (session.crashed) 1 else 0)
+                put(Constants.DB.SessionTable.COL_EXPORTED, if (session.exported) 1 else 0)
             }
             val result = writableDatabase.insert(Constants.DB.SessionTable.NAME, null, values)
             if (result == -1L) {
@@ -74,7 +78,10 @@ internal open class DatabaseImpl(
                 val crashedIndex = it.getColumnIndex(Constants.DB.SessionTable.COL_CRASHED)
                 val crashed = it.getInt(crashedIndex) == 1
 
-                res = SessionEntity(id, createdAt, crashed)
+                val exportedIndex = it.getColumnIndex(Constants.DB.SessionTable.COL_EXPORTED)
+                val exported = it.getInt(exportedIndex) == 1
+
+                res = SessionEntity(id, createdAt, crashed, exported)
             }
         }
 
@@ -90,7 +97,7 @@ internal open class DatabaseImpl(
             val result = writableDatabase.update(
                 Constants.DB.SessionTable.NAME,
                 values,
-                "WHERE ${Constants.DB.SessionTable.COL_ID} = ?",
+                "${Constants.DB.SessionTable.COL_ID} = ?",
                 arrayOf(sessionId)
             )
 
@@ -99,6 +106,27 @@ internal open class DatabaseImpl(
             }
         } catch (e: SQLiteException) {
             Log.e(TAG, "Failed to set session crash for session: $sessionId", e)
+        }
+    }
+
+    override fun setSessionExported(sessionId: String) {
+        try {
+            val values = ContentValues().apply {
+                put(Constants.DB.SessionTable.COL_EXPORTED, 1)
+            }
+
+            val result = writableDatabase.update(
+                Constants.DB.SessionTable.NAME,
+                values,
+                "${Constants.DB.SessionTable.COL_ID} = ?",
+                arrayOf(sessionId)
+            )
+
+            if (result == -1) {
+                Log.e(TAG, "Failed to set session exported for session: $sessionId")
+            }
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to set session exported for session: $sessionId", e)
         }
     }
 
@@ -151,6 +179,21 @@ internal open class DatabaseImpl(
         }
 
         return res
+    }
+
+    override fun deleteExportedSessions() {
+        try {
+            val result = writableDatabase.delete(
+                Constants.DB.SessionTable.NAME,
+                "${Constants.DB.SessionTable.COL_EXPORTED} = 1",
+                null
+            )
+            if (result == -1) {
+                Log.e(TAG, "Failed to delete exported sessions")
+            }
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to delete exported sessions", e)
+        }
     }
 
     override fun close() {

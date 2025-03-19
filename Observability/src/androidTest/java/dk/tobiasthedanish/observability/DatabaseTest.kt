@@ -64,4 +64,39 @@ internal class DatabaseTest {
 
         Assert.assertNull(fetchedEntity)
     }
+
+    @Test
+    fun testSessionCrashed() {
+        runner.setSessionCrashed(sessionId = runner.sessionId)
+
+        val session = runner.getSession(runner.sessionId)
+
+        Assert.assertNotNull(session)
+        Assert.assertEquals(true, session?.crashed)
+        Assert.assertEquals(runner.sessionId, session?.id)
+    }
+
+    @Test
+    fun testSessionExported() {
+        runner.setSessionExported(sessionId = runner.sessionId)
+
+        val session = runner.getSession(runner.sessionId)
+
+        Assert.assertNotNull(session)
+        Assert.assertEquals(true, session?.exported)
+        Assert.assertEquals(runner.sessionId, session?.id)
+    }
+
+    @Test
+    fun testDeleteExportedSessions() {
+        val createdEntity = runner.createSession()
+
+        runner.setSessionExported(sessionId = createdEntity.id)
+
+        runner.deleteExportedSessions()
+
+        val session = runner.getSession(createdEntity.id)
+
+        Assert.assertNull(session)
+    }
 }

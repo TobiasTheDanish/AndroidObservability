@@ -31,15 +31,15 @@ internal class LifecycleEventsTestRunner {
 
     fun initObservability() {
         val config = object : ObservabilityConfigInternal {
-            override val cleanupService: CleanupService = CleanupServiceImpl(testEventTracker)
-            override val timeProvider: TimeProvider = AndroidTimeProvider()
+            private val database = DatabaseImpl(application)
             private val idFactory: IdFactory = IdFactoryImpl()
             private val sessionStore = SessionStoreImpl(
                 application.dataStore,
                 CoroutineScope(Dispatchers.IO)
             )
-            private val database = DatabaseImpl(application)
 
+            override val cleanupService: CleanupService = CleanupServiceImpl(testEventTracker, database)
+            override val timeProvider: TimeProvider = AndroidTimeProvider()
             override val sessionManager: SessionManager = SessionManagerImpl(
                 timeProvider = timeProvider,
                 idFactory = idFactory,

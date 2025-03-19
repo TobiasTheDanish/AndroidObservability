@@ -19,7 +19,8 @@ internal class DatabaseTestRunner {
     private val idFactory = IdFactoryImpl()
     private val timeProvider = AndroidTimeProvider()
     private val database = DatabaseImpl(application)
-    private lateinit var sessionId: String
+    lateinit var sessionId: String
+        private set
 
     fun setup() {
         sessionId = idFactory.uuid()
@@ -61,6 +62,18 @@ internal class DatabaseTestRunner {
 
     fun getSession(sessionId: String): SessionEntity? {
         return database.getSession(sessionId)
+    }
+
+    fun setSessionCrashed(sessionId: String) {
+        database.setSessionCrashed(sessionId)
+    }
+
+    fun setSessionExported(sessionId: String) {
+        database.setSessionExported(sessionId)
+    }
+
+    fun deleteExportedSessions() {
+        database.deleteExportedSessions()
     }
 
     fun createSession(): SessionEntity {

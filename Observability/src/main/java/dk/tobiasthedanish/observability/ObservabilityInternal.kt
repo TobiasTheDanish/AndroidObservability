@@ -56,7 +56,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         eventStore = eventStore,
         sessionManager = sessionManager
     )
-    override val cleanupService: CleanupService = CleanupServiceImpl(eventStore)
+    override val cleanupService: CleanupService = CleanupServiceImpl(eventStore, database)
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
     override val activityLifecycleCollector: ActivityLifecycleCollector =
         ActivityLifecycleCollector(
