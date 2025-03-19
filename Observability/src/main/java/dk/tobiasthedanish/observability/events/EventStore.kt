@@ -3,6 +3,7 @@ package dk.tobiasthedanish.observability.events
 import dk.tobiasthedanish.observability.exception.ExceptionEvent
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleEvent
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEvent
+import dk.tobiasthedanish.observability.navigation.NavigationEvent
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.EventEntity
 import dk.tobiasthedanish.observability.utils.IdFactory
@@ -27,6 +28,9 @@ internal class EventStoreImpl(
 
             EventTypes.LIFECYCLE_ACTIVITY ->
                 Json.encodeToString(ActivityLifecycleEvent.serializer(), event.data as ActivityLifecycleEvent)
+
+            EventTypes.NAVIGATION ->
+                Json.encodeToString(NavigationEvent.serializer(), event.data as NavigationEvent)
 
             else -> ""
         }

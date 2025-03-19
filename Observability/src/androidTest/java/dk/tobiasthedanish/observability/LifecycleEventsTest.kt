@@ -19,6 +19,7 @@ class LifecycleEventsTest {
     @Before
     fun setup() {
         runner = LifecycleEventsTestRunner()
+        runner.wakeup()
     }
 
     @Test
@@ -43,6 +44,7 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun appLifecycleEventsTest() {
+        // This function is hella flaky if emulator is running slow due to pressHome function
         runner.initObservability()
 
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
@@ -69,5 +71,20 @@ class LifecycleEventsTest {
         }
 
         Assert.assertTrue("No Unhandled exception event was tracked", runner.didTrackEvent(EventTypes.UNHANDLED_EXCEPTION))
+    }
+
+    @Test
+    @LargeTest
+    fun navigationEventTest() {
+        runner.initObservability()
+
+        ActivityScenario.launch(TestActivity::class.java).use {
+            it.moveToState(Lifecycle.State.RESUMED)
+            it.onActivity {
+                runner.navigate()
+            }
+        }
+
+        Assert.assertTrue("No navigation event was tracked", runner.didTrackEvent(EventTypes.NAVIGATION))
     }
 }

@@ -2,6 +2,7 @@ package dk.tobiasthedanish.observability
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,12 +34,19 @@ object Observability {
             observability.stop()
     }
 
+    @JvmStatic
+    fun onNavigation(route: String) {
+        Log.d("Observability", "Navigation to route: $route")
+        if (isInitialized.get()) {
+            observability.onNavigation(route)
+        }
+    }
+
     @VisibleForTesting
     internal fun initInstrumentationTest(configInternal: ObservabilityConfigInternal) {
-        if (isInitialized.compareAndSet(false, true)) {
-            observability = ObservabilityInternal(configInternal)
-            observability.init()
-            this.start()
-        }
+        isInitialized.set(true)
+        observability = ObservabilityInternal(configInternal)
+        observability.init()
+        this.start()
     }
 }

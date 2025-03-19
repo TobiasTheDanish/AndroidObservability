@@ -1,6 +1,5 @@
 package dk.tobiasthedanish.observability
 
-import android.util.Log
 import dk.tobiasthedanish.observability.events.Event
 import dk.tobiasthedanish.observability.events.EventStore
 import dk.tobiasthedanish.observability.events.EventTracker

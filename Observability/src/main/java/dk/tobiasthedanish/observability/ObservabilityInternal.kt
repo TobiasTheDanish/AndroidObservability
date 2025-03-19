@@ -12,6 +12,10 @@ import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
+import dk.tobiasthedanish.observability.navigation.NavigationCollector
+import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
+import dk.tobiasthedanish.observability.navigation.NavigationManager
+import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
 import dk.tobiasthedanish.observability.session.SessionStore
@@ -30,9 +34,11 @@ internal interface ObservabilityConfigInternal {
     val sessionManager: SessionManager
     val timeProvider: TimeProvider
     val lifecycleManager: LifecycleManager
+    val navigationManager: NavigationManager
     val activityLifecycleCollector: ActivityLifecycleCollector
     val appLifecycleCollector: AppLifecycleCollector
     val unhandledExceptionCollector: UnhandledExceptionCollector
+    val navigationCollector: NavigationCollector
     val cleanupService: CleanupService
 }
 
@@ -40,7 +46,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     ObservabilityConfigInternal {
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
-    private val eventStore: EventStore = EventStoreImpl(database, idFactory)
+    private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val sessionStore: SessionStore = SessionStoreImpl(
         dataStore = application.dataStore,
         externalScope = CoroutineScope(Dispatchers.IO)
@@ -56,8 +62,16 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         eventStore = eventStore,
         sessionManager = sessionManager
     )
-    override val cleanupService: CleanupService = CleanupServiceImpl(eventStore, database)
+    override val cleanupService: CleanupService = CleanupServiceImpl(
+        eventStore = eventStore,
+        database = database
+    )
+    override val navigationManager: NavigationManager = NavigationManagerImpl()
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
+    override val navigationCollector: NavigationCollector = NavigationCollectorImpl(
+        eventTracker = eventTracker,
+        timeProvider = timeProvider
+    )
     override val activityLifecycleCollector: ActivityLifecycleCollector =
         ActivityLifecycleCollector(
             lifecycleManager = lifecycleManager,
@@ -81,6 +95,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val activityLifecycleCollector by lazy { config.activityLifecycleCollector }
     private val appLifecycleCollector by lazy { config.appLifecycleCollector }
     private val unhandledExceptionCollector by lazy { config.unhandledExceptionCollector }
+    private val navigationCollector by lazy { config.navigationCollector }
+    private val navigationManager by lazy { config.navigationManager }
     private val cleanupService by lazy { config.cleanupService }
 
     private var isStarted: Boolean = false
@@ -90,6 +106,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         sessionManager.init()
         lifecycleManager.addListener(this)
         lifecycleManager.register()
+        navigationManager.addCollector(navigationCollector)
     }
 
     fun start() {
@@ -98,6 +115,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 activityLifecycleCollector.register()
                 appLifecycleCollector.register()
                 unhandledExceptionCollector.register()
+                navigationManager.register()
                 isStarted = true
             }
         }
@@ -109,8 +127,15 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 activityLifecycleCollector.unregister()
                 appLifecycleCollector.unregister()
                 unhandledExceptionCollector.unregister()
+                navigationManager.unregister()
                 isStarted = false
             }
+        }
+    }
+
+    fun onNavigation(route: String) {
+        if (isStarted) {
+            navigationManager.onNavigation(route)
         }
     }
 

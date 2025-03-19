@@ -39,6 +39,8 @@ android {
 }
 
 dependencies {
+    compileOnly(libs.androidx.navigation.compose)
+
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
@@ -51,6 +53,7 @@ dependencies {
     testImplementation(libs.junit)
 
     androidTestImplementation(libs.androidx.activity.compose)
+    androidTestImplementation(libs.androidx.navigation.compose)
     androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.androidx.compose.runtime.android)
     androidTestImplementation(libs.androidx.compose.ui)

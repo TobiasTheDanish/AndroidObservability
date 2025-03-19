@@ -2,14 +2,21 @@ package dk.tobiasthedanish.observability
 
 import android.app.Application
 import android.app.Instrumentation
+import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import dk.tobiasthedanish.observability.utils.CleanupService
 import dk.tobiasthedanish.observability.utils.CleanupServiceImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
+import dk.tobiasthedanish.observability.navigation.NavigationCollector
+import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
+import dk.tobiasthedanish.observability.navigation.NavigationManager
+import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
 import dk.tobiasthedanish.observability.session.SessionStoreImpl
@@ -27,7 +34,10 @@ internal class LifecycleEventsTestRunner {
     private val application = instrumentation.context.applicationContext as Application
     private val device = UiDevice.getInstance(instrumentation)
     private val testEventTracker = TestEventTracker()
-    private lateinit var observabilityInternal: ObservabilityInternal
+
+    fun wakeup() {
+        device.wakeUp()
+    }
 
     fun initObservability() {
         val config = object : ObservabilityConfigInternal {
@@ -47,6 +57,7 @@ internal class LifecycleEventsTestRunner {
                 db = database,
             )
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
+            override val navigationManager: NavigationManager = NavigationManagerImpl()
             override val activityLifecycleCollector: ActivityLifecycleCollector = ActivityLifecycleCollector(
                 lifecycleManager = lifecycleManager,
                 eventTracker = testEventTracker,
@@ -61,11 +72,11 @@ internal class LifecycleEventsTestRunner {
                 eventTracker = testEventTracker,
                 timeProvider = timeProvider,
             )
+            override val navigationCollector: NavigationCollector = NavigationCollectorImpl(testEventTracker, timeProvider)
+
         }
 
-        observabilityInternal = ObservabilityInternal(config)
-        observabilityInternal.init()
-        observabilityInternal.start()
+        Observability.initInstrumentationTest(config)
     }
 
     fun disableUncaughtExceptionHandler() {
@@ -88,7 +99,19 @@ internal class LifecycleEventsTestRunner {
     }
 
     fun pressHome() {
-        device.pressHome()
+        // This function is hella flaky if emulator is running slow
+        if (!device.pressHome()) {
+            Log.e("LifecycleEventsTestRunner", "Pressing home failed...")
+            device.pressBack()
+        }
+
         device.waitForIdle()
+    }
+
+    fun navigate() {
+        //val navigateButton = device.findObject(By.text("Navigate"))
+        val navigateButton = device.findObject(By.clickable(true))
+        navigateButton.click()
+        device.wait(Until.hasObject(By.text("SecondaryScreen")),5000)
     }
 }
