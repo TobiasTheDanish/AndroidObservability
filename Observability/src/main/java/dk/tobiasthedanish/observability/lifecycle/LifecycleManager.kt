@@ -3,20 +3,26 @@ package dk.tobiasthedanish.observability.lifecycle
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class LifecycleManager(
     private val application: Application
 ): Application.ActivityLifecycleCallbacks {
+    private var isRegistered = AtomicBoolean(false)
     private val startedActivities = mutableSetOf<String>()
     private val appLifecycleListeners = mutableListOf<AppLifecycleListener>()
     private val activityLifecycleListeners = mutableListOf<ActivityLifecycleCollector>()
 
     fun register() {
-        application.registerActivityLifecycleCallbacks(this)
+        if (isRegistered.compareAndSet(false, true)) {
+            application.registerActivityLifecycleCallbacks(this)
+        }
     }
 
     fun unregister() {
-        application.unregisterActivityLifecycleCallbacks(this)
+        if (isRegistered.compareAndSet(true, false)) {
+            application.unregisterActivityLifecycleCallbacks(this)
+        }
     }
 
     fun addListener(listener: AppLifecycleListener) {

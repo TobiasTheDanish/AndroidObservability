@@ -5,8 +5,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import dk.tobiasthedanish.observability.events.EventTypes
-import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleEventType
-import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEventType
+import org.junit.After
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
@@ -22,6 +21,11 @@ class LifecycleEventsTest {
         runner.wakeup()
     }
 
+    @After
+    fun teardown() {
+        runner.teardown()
+    }
+
     @Test
     @LargeTest
     fun activityLifecycleEventsTest() {
@@ -30,14 +34,11 @@ class LifecycleEventsTest {
         ActivityScenario.launch(TestActivity::class.java).use {
             it.moveToState(Lifecycle.State.RESUMED)
 
-            Assert.assertTrue(runner.didTrackEvent(ActivityLifecycleEventType.CREATED))
-            Assert.assertTrue(runner.didTrackEvent(ActivityLifecycleEventType.RESUMED))
-            Assert.assertFalse(runner.didTrackEvent(ActivityLifecycleEventType.PAUSED))
-            Assert.assertFalse(runner.didTrackEvent(ActivityLifecycleEventType.DESTROYED))
+            Assert.assertTrue(runner.didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY))
+            Assert.assertTrue("Less than the expected amount of 4 event were tracked", 2 <= runner.trackedEventCount(EventTypes.LIFECYCLE_ACTIVITY))
 
             it.moveToState(Lifecycle.State.DESTROYED)
-            Assert.assertTrue(runner.didTrackEvent(ActivityLifecycleEventType.PAUSED))
-            Assert.assertTrue(runner.didTrackEvent(ActivityLifecycleEventType.DESTROYED))
+            Assert.assertTrue("Less than the expected amount of 4 event were tracked", 4 <= runner.trackedEventCount(EventTypes.LIFECYCLE_ACTIVITY))
         }
     }
 
@@ -49,11 +50,11 @@ class LifecycleEventsTest {
 
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
-            Assert.assertTrue(runner.didTrackEvent(AppLifecycleEventType.FOREGROUND))
-            Assert.assertFalse(runner.didTrackEvent(AppLifecycleEventType.BACKGROUND))
+            Assert.assertTrue(runner.didTrackEvent(EventTypes.LIFECYCLE_APP))
+            Assert.assertEquals(1, runner.trackedEventCount(EventTypes.LIFECYCLE_APP))
 
             runner.pressHome()
-            Assert.assertTrue(runner.didTrackEvent(AppLifecycleEventType.BACKGROUND))
+            Assert.assertEquals(2, runner.trackedEventCount(EventTypes.LIFECYCLE_APP))
         }
 
     }

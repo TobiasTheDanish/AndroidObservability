@@ -15,6 +15,7 @@ internal interface Database {
 
     fun createEvent(event: EventEntity)
     fun getEvent(eventId: String): EventEntity?
+    fun insertEvents(events: List<EventEntity>): Boolean
 
     fun deleteExportedSessions()
 }
@@ -179,6 +180,32 @@ internal class DatabaseImpl(
         }
 
         return res
+    }
+
+    override fun insertEvents(events: List<EventEntity>): Boolean {
+        writableDatabase.beginTransaction()
+        try {
+            events.forEach { event ->
+                val values = ContentValues().apply {
+                    put(Constants.DB.EventTable.COL_ID, event.id)
+                    put(Constants.DB.EventTable.COL_CREATED_AT, event.createdAt)
+                    put(Constants.DB.EventTable.COL_TYPE, event.type)
+                    put(Constants.DB.EventTable.COL_SESSION_ID, event.sessionId)
+                    put(Constants.DB.EventTable.COL_SERIALIZED_DATA, event.serializedData)
+                }
+                if(writableDatabase.insert(Constants.DB.EventTable.NAME, null, values) == -1L) {
+                    return false
+                }
+            }
+
+            writableDatabase.setTransactionSuccessful()
+            return true
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Error inserting events in db", e)
+            return false
+        } finally {
+            writableDatabase.endTransaction()
+        }
     }
 
     override fun deleteExportedSessions() {

@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.events
 
+import android.util.Log
 import dk.tobiasthedanish.observability.exception.ExceptionEvent
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleEvent
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEvent
@@ -8,16 +9,25 @@ import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.EventEntity
 import dk.tobiasthedanish.observability.utils.IdFactory
 import kotlinx.serialization.json.Json
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal interface EventStore {
     fun <T: Any>store(event: Event<T>)
-    fun clear()
+    fun flush()
 }
+
+private const val TAG = "EventStoreImpl"
 
 internal class EventStoreImpl(
     private val db: Database,
     private val idFactory: IdFactory,
 ): EventStore {
+    private val queue by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        LinkedBlockingQueue<EventEntity>(30)
+    }
+    private var isFlushing = AtomicBoolean(false)
+
     override fun <T : Any> store(event: Event<T>) {
         val serializedData: String = when (event.type) {
             EventTypes.UNHANDLED_EXCEPTION ->
@@ -43,11 +53,30 @@ internal class EventStoreImpl(
             serializedData = serializedData,
         )
 
-        db.createEvent(entity)
+        if (!queue.offer(entity)) {
+            db.createEvent(entity)
+            flush()
+        }
     }
 
-    override fun clear() {
-        TODO("Not yet implemented")
-    }
+    override fun flush() {
+        if (isFlushing.compareAndSet(false, true)) {
+            try {
+                val eventList = mutableListOf<EventEntity>()
+                queue.drainTo(eventList)
 
+                if (eventList.isEmpty()) {
+                    return
+                }
+
+                if(!db.insertEvents(eventList)) {
+                    Log.e(TAG, "Failed to insert ${eventList.size} events")
+                } else {
+                    Log.i(TAG, "Successfully inserted ${eventList.size} events")
+                }
+            } finally {
+                isFlushing.set(false)
+            }
+        }
+    }
 }

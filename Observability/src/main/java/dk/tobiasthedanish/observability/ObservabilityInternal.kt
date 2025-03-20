@@ -63,7 +63,6 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         sessionManager = sessionManager
     )
     override val cleanupService: CleanupService = CleanupServiceImpl(
-        eventStore = eventStore,
         database = database
     )
     override val navigationManager: NavigationManager = NavigationManagerImpl()
@@ -141,13 +140,11 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
 
     override fun onAppForeground() {
         sessionManager.onAppForeground()
-/*
         synchronized(startLock) {
             if (isStarted) {
                 // Exporter is useful here
             }
         }
-*/
     }
 
     override fun onAppBackground() {
@@ -155,6 +152,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         synchronized(startLock) {
             if (isStarted) {
                 cleanupService.clearData()
+
             }
         }
     }
