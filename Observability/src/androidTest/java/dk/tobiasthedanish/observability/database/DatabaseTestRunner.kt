@@ -9,7 +9,12 @@ import dk.tobiasthedanish.observability.storage.Constants
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.storage.EventEntity
 import dk.tobiasthedanish.observability.storage.SessionEntity
+import dk.tobiasthedanish.observability.storage.TraceEntity
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
+import dk.tobiasthedanish.observability.tracing.InternalTrace
+import dk.tobiasthedanish.observability.tracing.TraceCollector
+import dk.tobiasthedanish.observability.tracing.TraceFactoryImpl
+import dk.tobiasthedanish.observability.tracing.TraceStatus
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
 
 internal class DatabaseTestRunner {
@@ -18,6 +23,25 @@ internal class DatabaseTestRunner {
 
     private val idFactory = IdFactoryImpl()
     private val timeProvider = AndroidTimeProvider()
+    val traceFactory = TraceFactoryImpl(
+        timeProvider = timeProvider,
+        idFactory = idFactory,
+        traceCollector = object : TraceCollector {
+            override fun onStart(trace: InternalTrace) {
+            }
+
+            override fun onEnded(trace: InternalTrace) {
+                createTrace(trace)
+            }
+
+            override fun register() {
+            }
+
+            override fun unregister() {
+            }
+
+        }
+    )
     private val database = DatabaseImpl(application)
     lateinit var sessionId: String
         private set
@@ -103,6 +127,34 @@ internal class DatabaseTestRunner {
         database.createEvent(entity)
 
         return entity
+    }
+
+    fun createTrace(trace: InternalTrace, sessionId: String? = null): TraceEntity {
+        val errorMessage = when(trace.status) {
+            is TraceStatus.Ok -> null
+            is TraceStatus.Error -> (trace.status as TraceStatus.Error).message
+        }
+
+        val entity = TraceEntity(
+            traceId = trace.traceId,
+            groupId = trace.groupId,
+            parentId = trace.parentId,
+            sessionId = sessionId ?: this.sessionId,
+            name = trace.name,
+            status = trace.status.name,
+            errorMessage = errorMessage,
+            startTime = trace.startTime,
+            endTime = trace.endTime,
+            hasEnded = trace.hasEnded(),
+        )
+
+        database.createTrace(entity)
+
+        return entity
+    }
+
+    fun getTrace(traceId: String): TraceEntity? {
+        return database.getTrace(traceId)
     }
 
     fun clearData() {

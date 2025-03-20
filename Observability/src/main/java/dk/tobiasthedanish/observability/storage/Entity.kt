@@ -14,3 +14,16 @@ internal data class EventEntity(
     val createdAt: Long,
     val sessionId: String
 )
+
+internal data class TraceEntity(
+    val groupId: String,
+    val traceId: String,
+    val parentId: String?,
+    val sessionId: String,
+    val name: String,
+    val status: String,
+    val errorMessage: String?,
+    val startTime: Long,
+    val endTime: Long,
+    val hasEnded: Boolean,
+)

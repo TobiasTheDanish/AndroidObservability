@@ -5,6 +5,8 @@ import dk.tobiasthedanish.observability.events.EventTypes
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEvent
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEventType
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -98,5 +100,38 @@ internal class DatabaseTest {
         val session = runner.getSession(createdEntity.id)
 
         Assert.assertNull(session)
+    }
+
+    @Test
+    fun testTraceCreation() = runBlocking {
+        val parentTrace = runner.traceFactory.startTrace("ParentTrace")
+        delay(200)
+
+        val childTrace1 = runner.traceFactory.createTrace("Child1")
+        childTrace1.setParent(parentTrace)
+        childTrace1.start()
+        delay(50)
+        val childTrace2 = runner.traceFactory.createTrace("Child2")
+        childTrace2.setParent(parentTrace)
+        childTrace2.start()
+
+        childTrace1.end()
+        val fetchedChild1 = runner.getTrace(childTrace1.traceId)
+        Assert.assertNotNull(fetchedChild1)
+        Assert.assertEquals(childTrace1.traceId, fetchedChild1?.traceId)
+
+        childTrace2.end()
+        val fetchedChild2 = runner.getTrace(childTrace2.traceId)
+        Assert.assertNotNull(fetchedChild2)
+        Assert.assertEquals(childTrace2.traceId, fetchedChild2?.traceId)
+
+        parentTrace.end()
+        val fetchedParent = runner.getTrace(parentTrace.traceId)
+        Assert.assertNotNull(fetchedParent)
+        Assert.assertEquals(parentTrace.traceId, fetchedParent?.traceId)
+
+
+        Assert.assertEquals(fetchedParent?.groupId, fetchedChild1?.groupId)
+        Assert.assertEquals(fetchedParent?.groupId, fetchedChild2?.groupId)
     }
 }

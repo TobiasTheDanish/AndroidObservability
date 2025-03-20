@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
+import dk.tobiasthedanish.observability.tracing.Trace
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Observability {
@@ -40,6 +41,22 @@ object Observability {
         if (isInitialized.get()) {
             observability.onNavigation(route)
         }
+    }
+
+    @JvmStatic
+    fun createTrace(name: String): Trace? {
+        if (isInitialized.get()) {
+            return observability.createTrace(name)
+        }
+        return null
+    }
+
+    @JvmStatic
+    fun startTrace(name: String): Trace? {
+        if (isInitialized.get()) {
+            observability.startTrace(name)
+        }
+        return null
     }
 
     @VisibleForTesting

@@ -25,6 +25,13 @@ import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
 import dk.tobiasthedanish.observability.time.TimeProvider
+import dk.tobiasthedanish.observability.tracing.Trace
+import dk.tobiasthedanish.observability.tracing.TraceCollector
+import dk.tobiasthedanish.observability.tracing.TraceCollectorImpl
+import dk.tobiasthedanish.observability.tracing.TraceFactory
+import dk.tobiasthedanish.observability.tracing.TraceFactoryImpl
+import dk.tobiasthedanish.observability.tracing.TraceStore
+import dk.tobiasthedanish.observability.tracing.TraceStoreImpl
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 
 internal interface ObservabilityConfigInternal {
     val sessionManager: SessionManager
+    val traceFactory: TraceFactory
     val timeProvider: TimeProvider
     val lifecycleManager: LifecycleManager
     val navigationManager: NavigationManager
@@ -39,6 +47,7 @@ internal interface ObservabilityConfigInternal {
     val appLifecycleCollector: AppLifecycleCollector
     val unhandledExceptionCollector: UnhandledExceptionCollector
     val navigationCollector: NavigationCollector
+    val traceCollector: TraceCollector
     val cleanupService: CleanupService
 }
 
@@ -61,6 +70,18 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     private val eventTracker: EventTracker = EventTrackerImpl(
         eventStore = eventStore,
         sessionManager = sessionManager
+    )
+    private val traceStore: TraceStore = TraceStoreImpl(
+        sessionManager = sessionManager,
+        db = database,
+    )
+    override val traceCollector: TraceCollector = TraceCollectorImpl(
+        traceStore = traceStore,
+    )
+    override val traceFactory: TraceFactory = TraceFactoryImpl(
+        idFactory = idFactory,
+        traceCollector = traceCollector,
+        timeProvider = timeProvider,
     )
     override val cleanupService: CleanupService = CleanupServiceImpl(
         database = database
@@ -91,11 +112,13 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLifecycleListener {
     private val sessionManager by lazy { config.sessionManager }
     private val lifecycleManager by lazy { config.lifecycleManager }
+    private val navigationManager by lazy { config.navigationManager }
     private val activityLifecycleCollector by lazy { config.activityLifecycleCollector }
     private val appLifecycleCollector by lazy { config.appLifecycleCollector }
     private val unhandledExceptionCollector by lazy { config.unhandledExceptionCollector }
     private val navigationCollector by lazy { config.navigationCollector }
-    private val navigationManager by lazy { config.navigationManager }
+    private val traceCollector by lazy { config.traceCollector }
+    private val traceFactory by lazy { config.traceFactory }
     private val cleanupService by lazy { config.cleanupService }
 
     private var isStarted: Boolean = false
@@ -114,6 +137,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 activityLifecycleCollector.register()
                 appLifecycleCollector.register()
                 unhandledExceptionCollector.register()
+                traceCollector.register()
                 navigationManager.register()
                 isStarted = true
             }
@@ -126,6 +150,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 activityLifecycleCollector.unregister()
                 appLifecycleCollector.unregister()
                 unhandledExceptionCollector.unregister()
+                traceCollector.unregister()
                 navigationManager.unregister()
                 isStarted = false
             }
@@ -136,6 +161,14 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         if (isStarted) {
             navigationManager.onNavigation(route)
         }
+    }
+
+    fun createTrace(name: String): Trace {
+        return traceFactory.createTrace(name)
+    }
+
+    fun startTrace(name: String): Trace {
+        return traceFactory.startTrace(name)
     }
 
     override fun onAppForeground() {

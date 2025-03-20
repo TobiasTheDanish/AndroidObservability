@@ -29,6 +29,11 @@ import dk.tobiasthedanish.observability.storage.Constants
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
 import dk.tobiasthedanish.observability.time.TimeProvider
+import dk.tobiasthedanish.observability.tracing.TraceCollector
+import dk.tobiasthedanish.observability.tracing.TraceCollectorImpl
+import dk.tobiasthedanish.observability.tracing.TraceFactory
+import dk.tobiasthedanish.observability.tracing.TraceFactoryImpl
+import dk.tobiasthedanish.observability.tracing.TraceStoreImpl
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
 import kotlinx.coroutines.CoroutineScope
@@ -52,8 +57,6 @@ internal class LifecycleEventsTestRunner {
 
     fun initObservability() {
         val config = object : ObservabilityConfigInternal {
-
-
             override val timeProvider: TimeProvider = AndroidTimeProvider()
             override val sessionManager: SessionManager = SessionManagerImpl(
                 timeProvider = timeProvider,
@@ -61,6 +64,12 @@ internal class LifecycleEventsTestRunner {
                 sessionStore = sessionStore,
                 db = database,
             )
+            private val traceStore = TraceStoreImpl(sessionManager, database)
+            override val traceCollector: TraceCollector = TraceCollectorImpl(traceStore = traceStore)
+            override val traceFactory: TraceFactory = TraceFactoryImpl(
+                timeProvider, traceCollector, idFactory
+            )
+
             private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager)
 
             override val cleanupService: CleanupService = CleanupServiceImpl(database)
@@ -81,7 +90,6 @@ internal class LifecycleEventsTestRunner {
                 timeProvider = timeProvider,
             )
             override val navigationCollector: NavigationCollector = NavigationCollectorImpl(eventTracker, timeProvider)
-
         }
 
         Observability.initInstrumentationTest(config)

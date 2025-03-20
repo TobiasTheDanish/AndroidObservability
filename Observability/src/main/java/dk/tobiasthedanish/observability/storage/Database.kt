@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
+import androidx.core.database.getStringOrNull
 
 internal interface Database {
     fun createSession(session: SessionEntity)
@@ -16,6 +17,10 @@ internal interface Database {
     fun createEvent(event: EventEntity)
     fun getEvent(eventId: String): EventEntity?
     fun insertEvents(events: List<EventEntity>): Boolean
+
+    fun createTrace(trace: TraceEntity)
+    fun getTrace(traceId: String): TraceEntity?
+    fun insertTraces(traces: List<TraceEntity>): Boolean
 
     fun deleteExportedSessions()
 }
@@ -28,12 +33,13 @@ internal class DatabaseImpl(
     context,
     Constants.DB.NAME,
     null,
-    Constants.DB.Versions.V2,
+    Constants.DB.Versions.V1,
 ), Database {
     override fun onCreate(db: SQLiteDatabase) {
         try {
             db.execSQL(Constants.SQL.CREATE_SESSION_TABLE)
             db.execSQL(Constants.SQL.CREATE_EVENTS_TABLE)
+            db.execSQL(Constants.SQL.CREATE_TRACE_TABLE)
         } catch (e: SQLiteException) {
             Log.e(TAG, "Failed to create database", e)
         }
@@ -185,7 +191,7 @@ internal class DatabaseImpl(
     override fun insertEvents(events: List<EventEntity>): Boolean {
         writableDatabase.beginTransaction()
         try {
-            events.forEach { event ->
+            for (event in events) {
                 val values = ContentValues().apply {
                     put(Constants.DB.EventTable.COL_ID, event.id)
                     put(Constants.DB.EventTable.COL_CREATED_AT, event.createdAt)
@@ -202,6 +208,115 @@ internal class DatabaseImpl(
             return true
         } catch (e: SQLiteException) {
             Log.e(TAG, "Error inserting events in db", e)
+            return false
+        } finally {
+            writableDatabase.endTransaction()
+        }
+    }
+
+    override fun createTrace(trace: TraceEntity) {
+        try {
+            val values = ContentValues().apply {
+                put(Constants.DB.TraceTable.COL_TRACE_ID, trace.traceId)
+                put(Constants.DB.TraceTable.COL_GROUP_ID, trace.groupId)
+                put(Constants.DB.TraceTable.COL_PARENT_ID, trace.parentId)
+                put(Constants.DB.TraceTable.COL_SESSION_ID, trace.sessionId)
+                put(Constants.DB.TraceTable.COL_NAME, trace.name)
+                put(Constants.DB.TraceTable.COL_STATUS, trace.status)
+                put(Constants.DB.TraceTable.COL_ERROR_MESSAGE, trace.errorMessage)
+                put(Constants.DB.TraceTable.COL_STARTED_AT, trace.startTime)
+                put(Constants.DB.TraceTable.COL_ENDED_AT, trace.endTime)
+                put(Constants.DB.TraceTable.COL_HAS_ENDED, if(trace.hasEnded) 1 else 0)
+            }
+            val result = writableDatabase.insert(Constants.DB.TraceTable.NAME, null, values)
+            if (result == -1L) {
+                Log.e(TAG, "Failed to insert trace")
+            }
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to insert trace", e)
+        }
+    }
+
+    override fun getTrace(traceId: String): TraceEntity? {
+        var res: TraceEntity? = null
+
+        readableDatabase.rawQuery(Constants.SQL.GET_TRACE, arrayOf(traceId)).use {
+            if(it.moveToFirst()) {
+                val idIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_TRACE_ID)
+                val id = it.getString(idIndex)
+
+                val groupIdIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_GROUP_ID)
+                val groupId = it.getString(groupIdIndex)
+
+                val parentIdIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_PARENT_ID)
+                val parentId = it.getStringOrNull(parentIdIndex)
+
+                val statusIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_STATUS)
+                val status = it.getString(statusIndex)
+
+                val createdAtIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_STARTED_AT)
+                val createdAt = it.getLong(createdAtIndex)
+
+                val endedAtIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_ENDED_AT)
+                val endedAt = it.getLong(endedAtIndex)
+
+                val errorMessageIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_ERROR_MESSAGE)
+                val errorMessage = it.getStringOrNull(errorMessageIndex)
+
+                val sessionIdIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_SESSION_ID)
+                val sessionId = it.getString(sessionIdIndex)
+
+                val nameIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_NAME)
+                val name = it.getString(nameIndex)
+
+                val hasEndedIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_HAS_ENDED)
+                val hasEnded = it.getLong(hasEndedIndex)
+
+                res = TraceEntity(
+                    traceId = id,
+                    groupId = groupId,
+                    parentId = parentId,
+                    status = status,
+                    errorMessage = errorMessage,
+                    startTime = createdAt,
+                    endTime = endedAt,
+                    sessionId = sessionId,
+                    name = name,
+                    hasEnded = hasEnded == 1L,
+                )
+            }
+        }
+
+        return res
+    }
+
+    override fun insertTraces(traces: List<TraceEntity>): Boolean {
+        writableDatabase.beginTransaction()
+        try {
+            for (trace in traces) {
+                val values = ContentValues().apply {
+                    put(Constants.DB.TraceTable.COL_TRACE_ID, trace.traceId)
+                    put(Constants.DB.TraceTable.COL_GROUP_ID, trace.groupId)
+                    put(Constants.DB.TraceTable.COL_PARENT_ID, trace.parentId)
+                    put(Constants.DB.TraceTable.COL_SESSION_ID, trace.sessionId)
+                    put(Constants.DB.TraceTable.COL_NAME, trace.name)
+                    put(Constants.DB.TraceTable.COL_STATUS, trace.status)
+                    put(Constants.DB.TraceTable.COL_ERROR_MESSAGE, trace.errorMessage)
+                    put(Constants.DB.TraceTable.COL_STARTED_AT, trace.startTime)
+                    put(Constants.DB.TraceTable.COL_ENDED_AT, trace.endTime)
+                    put(Constants.DB.TraceTable.COL_HAS_ENDED, if (trace.hasEnded) 1 else 0)
+                }
+
+                if (writableDatabase.insert(Constants.DB.TraceTable.NAME, null, values) == -1L) {
+                    Log.e(TAG, "Failed to insert trace(${trace.name})")
+                    return false
+                }
+            }
+
+            writableDatabase.setTransactionSuccessful()
+            return true
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to insert trace", e)
             return false
         } finally {
             writableDatabase.endTransaction()

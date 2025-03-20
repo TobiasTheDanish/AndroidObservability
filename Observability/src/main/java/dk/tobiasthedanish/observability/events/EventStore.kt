@@ -28,7 +28,7 @@ internal class EventStoreImpl(
     }
     private var isFlushing = AtomicBoolean(false)
 
-    override fun <T : Any> store(event: Event<T>) {
+    override fun <T: Any> store(event: Event<T>) {
         val serializedData: String = when (event.type) {
             EventTypes.UNHANDLED_EXCEPTION ->
                 Json.encodeToString(ExceptionEvent.serializer(), event.data as ExceptionEvent)
