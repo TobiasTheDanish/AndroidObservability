@@ -54,7 +54,7 @@ object Observability {
     @JvmStatic
     fun startTrace(name: String): Trace? {
         if (isInitialized.get()) {
-            observability.startTrace(name)
+            return observability.startTrace(name)
         }
         return null
     }

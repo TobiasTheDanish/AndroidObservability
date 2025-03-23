@@ -3,7 +3,15 @@
         android:exported="false"
         android:usesCleartextTraffic="true">
         <activity
-            android:name="dk.tobiasthedanish.observability.TestActivity"
+            android:name="dk.tobiasthedanish.observability.lifecycle.TestActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="dk.tobiasthedanish.observability.tracing.TraceTestActivity"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
