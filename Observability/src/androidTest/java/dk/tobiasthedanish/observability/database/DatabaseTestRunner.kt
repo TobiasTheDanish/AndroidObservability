@@ -1,4 +1,4 @@
-package dk.tobiasthedanish.observability
+package dk.tobiasthedanish.observability.database
 
 import android.app.Application
 import android.app.Instrumentation

@@ -1,4 +1,4 @@
-package dk.tobiasthedanish.observability
+package dk.tobiasthedanish.observability.lifecycle
 
 import android.app.Application
 import android.app.Instrumentation
@@ -8,6 +8,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import dk.tobiasthedanish.observability.Observability
+import dk.tobiasthedanish.observability.ObservabilityConfigInternal
 import dk.tobiasthedanish.observability.events.EventStore
 import dk.tobiasthedanish.observability.events.EventStoreImpl
 import dk.tobiasthedanish.observability.events.EventTracker
@@ -15,9 +17,6 @@ import dk.tobiasthedanish.observability.events.EventTrackerImpl
 import dk.tobiasthedanish.observability.utils.CleanupService
 import dk.tobiasthedanish.observability.utils.CleanupServiceImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
-import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
-import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
-import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
 import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager

@@ -1,4 +1,4 @@
-package dk.tobiasthedanish.observability
+package dk.tobiasthedanish.observability.database
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dk.tobiasthedanish.observability.events.EventTypes

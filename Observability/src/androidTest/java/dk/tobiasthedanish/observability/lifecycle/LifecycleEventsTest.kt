@@ -1,4 +1,4 @@
-package dk.tobiasthedanish.observability
+package dk.tobiasthedanish.observability.lifecycle
 
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario

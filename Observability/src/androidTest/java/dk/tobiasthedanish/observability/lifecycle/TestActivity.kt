@@ -1,4 +1,4 @@
-package dk.tobiasthedanish.observability
+package dk.tobiasthedanish.observability.lifecycle
 
 import android.os.Bundle
 import android.util.Log
