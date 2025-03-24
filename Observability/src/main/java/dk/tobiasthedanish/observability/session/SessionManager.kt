@@ -16,6 +16,9 @@ internal interface SessionManager: AppLifecycleListener {
     fun <T : Any> onEventTracked(event: Event<T>)
 }
 
+private const val SESSION_MAX_DURATION_MS = 21600000
+private const val SESSION_MAX_TIME_SINCE_EVENT = 1200000
+
 internal class SessionManagerImpl(
     private val timeProvider: TimeProvider,
     private val idFactory: IdFactory,
@@ -28,7 +31,10 @@ internal class SessionManagerImpl(
     override fun init() = runBlocking {
         val recentSession = sessionStore.getRecent()
 
-        currentSession = recentSession ?: createNewSession()
+        currentSession = when {
+            recentSession != null && continueSession(recentSession) -> recentSession
+            else -> createNewSession()
+        }
     }
 
     override fun getSessionId(): String {
@@ -64,6 +70,24 @@ internal class SessionManagerImpl(
 
     override fun onAppBackground() {
         appBackgroundTime = timeProvider.elapsedRealtime
+    }
+
+    private fun continueSession(session: Session): Boolean {
+        if (session.crashed) {
+            return false
+        }
+
+        val sessionDuration = timeProvider.now() - session.createdAt
+        if (SESSION_MAX_DURATION_MS < sessionDuration || sessionDuration > 0) {
+            return false
+        }
+
+        if (session.lastEventTime > 0) {
+            val timeSinceLastEvent = timeProvider.now() - session.lastEventTime
+            return SESSION_MAX_TIME_SINCE_EVENT < timeSinceLastEvent || timeSinceLastEvent < 0
+        }
+
+        return true
     }
 
     private fun createNewSession(): Session {
