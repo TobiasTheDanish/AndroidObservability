@@ -2,7 +2,6 @@ package dk.tobiasthedanish.observability
 
 import android.app.Application
 import android.content.Context
-import android.util.Log
 import androidx.annotation.VisibleForTesting
 import dk.tobiasthedanish.observability.tracing.Trace
 import java.util.concurrent.atomic.AtomicBoolean
@@ -37,7 +36,6 @@ object Observability {
 
     @JvmStatic
     fun onNavigation(route: String) {
-        Log.d("Observability", "Navigation to route: $route")
         if (isInitialized.get()) {
             observability.onNavigation(route)
         }
