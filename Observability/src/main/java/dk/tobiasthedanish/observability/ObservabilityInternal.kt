@@ -20,7 +20,6 @@ import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
 import dk.tobiasthedanish.observability.session.SessionStore
 import dk.tobiasthedanish.observability.session.SessionStoreImpl
-import dk.tobiasthedanish.observability.session.dataStore
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
@@ -34,6 +33,8 @@ import dk.tobiasthedanish.observability.tracing.TraceStore
 import dk.tobiasthedanish.observability.tracing.TraceStoreImpl
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
+import dk.tobiasthedanish.observability.utils.LocalPreferencesDataStoreImpl
+import dk.tobiasthedanish.observability.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 
@@ -56,8 +57,12 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
     private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
-    private val sessionStore: SessionStore = SessionStoreImpl(
+    private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
+        idFactory = idFactory
+    )
+    private val sessionStore: SessionStore = SessionStoreImpl(
+        dataStore = localPreferencesDataStore,
         externalScope = CoroutineScope(Dispatchers.IO)
     )
     override val timeProvider: TimeProvider = AndroidTimeProvider()
