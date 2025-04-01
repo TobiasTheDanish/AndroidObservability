@@ -8,6 +8,8 @@ import dk.tobiasthedanish.observability.events.EventStoreImpl
 import dk.tobiasthedanish.observability.events.EventTracker
 import dk.tobiasthedanish.observability.events.EventTrackerImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
+import dk.tobiasthedanish.observability.export.Exporter
+import dk.tobiasthedanish.observability.export.ExporterImpl
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
@@ -16,6 +18,10 @@ import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager
 import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
+import dk.tobiasthedanish.observability.scheduling.Scheduler
+import dk.tobiasthedanish.observability.scheduling.SchedulerImpl
+import dk.tobiasthedanish.observability.scheduling.Ticker
+import dk.tobiasthedanish.observability.scheduling.TickerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
 import dk.tobiasthedanish.observability.session.SessionStore
@@ -37,6 +43,7 @@ import dk.tobiasthedanish.observability.utils.LocalPreferencesDataStoreImpl
 import dk.tobiasthedanish.observability.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import java.util.concurrent.Executors
 
 internal interface ObservabilityConfigInternal {
     val sessionManager: SessionManager
@@ -50,12 +57,15 @@ internal interface ObservabilityConfigInternal {
     val navigationCollector: NavigationCollector
     val traceCollector: TraceCollector
     val cleanupService: CleanupService
+    val exporter: Exporter
 }
 
 internal class ObservabilityConfigInternalImpl(application: Application) :
     ObservabilityConfigInternal {
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
+    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor())
+    private val ticker: Ticker = TickerImpl(scheduler)
     private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
@@ -91,6 +101,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     override val cleanupService: CleanupService = CleanupServiceImpl(
         database = database
     )
+    override val exporter: Exporter = ExporterImpl(ticker = ticker)
     override val navigationManager: NavigationManager = NavigationManagerImpl()
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
     override val navigationCollector: NavigationCollector = NavigationCollectorImpl(
@@ -125,6 +136,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val traceCollector by lazy { config.traceCollector }
     private val traceFactory by lazy { config.traceFactory }
     private val cleanupService by lazy { config.cleanupService }
+    private val exporter by lazy { config.exporter }
 
     private var isStarted: Boolean = false
     private val startLock = Any()
@@ -144,6 +156,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 unhandledExceptionCollector.register()
                 traceCollector.register()
                 navigationManager.register()
+                exporter.register()
                 isStarted = true
             }
         }
@@ -157,6 +170,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 unhandledExceptionCollector.unregister()
                 traceCollector.unregister()
                 navigationManager.unregister()
+                exporter.unregister()
                 isStarted = false
             }
         }
@@ -181,6 +195,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         synchronized(startLock) {
             if (isStarted) {
                 // Exporter is useful here
+                exporter.resume()
             }
         }
     }
@@ -189,8 +204,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         sessionManager.onAppBackground()
         synchronized(startLock) {
             if (isStarted) {
+                exporter.pause()
                 cleanupService.clearData()
-
             }
         }
     }
