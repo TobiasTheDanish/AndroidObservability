@@ -18,5 +18,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <meta-data android:name="dk.tobiasthedanish.observability.API_KEY" android:value="YOUR_API_KEY" />
+        <!--
+        The API_URL is used by mock web server, changing this could lead to test failures.
+        -->
+        <meta-data android:name="dk.tobiasthedanish.observability.API_URL" android:value="http://localhost:8080" />
     </application>
 </manifest>

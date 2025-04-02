@@ -1,6 +1,7 @@
 package dk.tobiasthedanish.observability
 
 import android.app.Application
+import android.util.Log
 import dk.tobiasthedanish.observability.utils.CleanupService
 import dk.tobiasthedanish.observability.utils.CleanupServiceImpl
 import dk.tobiasthedanish.observability.events.EventStore
@@ -37,9 +38,13 @@ import dk.tobiasthedanish.observability.tracing.TraceFactory
 import dk.tobiasthedanish.observability.tracing.TraceFactoryImpl
 import dk.tobiasthedanish.observability.tracing.TraceStore
 import dk.tobiasthedanish.observability.tracing.TraceStoreImpl
+import dk.tobiasthedanish.observability.utils.ConfigService
+import dk.tobiasthedanish.observability.utils.ConfigServiceImpl
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
 import dk.tobiasthedanish.observability.utils.LocalPreferencesDataStoreImpl
+import dk.tobiasthedanish.observability.utils.ManifestReader
+import dk.tobiasthedanish.observability.utils.ManifestReaderImpl
 import dk.tobiasthedanish.observability.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +63,7 @@ internal interface ObservabilityConfigInternal {
     val traceCollector: TraceCollector
     val cleanupService: CleanupService
     val exporter: Exporter
+    val configService: ConfigService
 }
 
 internal class ObservabilityConfigInternalImpl(application: Application) :
@@ -75,6 +81,9 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         dataStore = localPreferencesDataStore,
         externalScope = CoroutineScope(Dispatchers.IO)
     )
+
+    private val manifestReader: ManifestReader = ManifestReaderImpl(application)
+    override val configService: ConfigService = ConfigServiceImpl(manifestReader)
     override val timeProvider: TimeProvider = AndroidTimeProvider()
     override val sessionManager: SessionManager = SessionManagerImpl(
         timeProvider = timeProvider,
@@ -137,20 +146,28 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val traceFactory by lazy { config.traceFactory }
     private val cleanupService by lazy { config.cleanupService }
     private val exporter by lazy { config.exporter }
+    private val configService by lazy { config.configService }
 
+    private var isInitialized: Boolean = false
     private var isStarted: Boolean = false
     private val startLock = Any()
 
     fun init() {
         sessionManager.init()
+        if (!configService.init()) {
+            Log.e("", "Initializing Observability failed! Will not start SDK.")
+            return
+        }
+
         lifecycleManager.addListener(this)
         lifecycleManager.register()
         navigationManager.addCollector(navigationCollector)
+        isInitialized = true
     }
 
     fun start() {
         synchronized(startLock) {
-            if (!isStarted) {
+            if (isInitialized && !isStarted) {
                 activityLifecycleCollector.register()
                 appLifecycleCollector.register()
                 unhandledExceptionCollector.register()
@@ -164,7 +181,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
 
     fun stop() {
         synchronized(startLock) {
-            if (!isStarted) {
+            if (isInitialized && isStarted) {
                 activityLifecycleCollector.unregister()
                 appLifecycleCollector.unregister()
                 unhandledExceptionCollector.unregister()

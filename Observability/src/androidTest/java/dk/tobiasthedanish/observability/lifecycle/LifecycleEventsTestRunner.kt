@@ -17,14 +17,19 @@ import dk.tobiasthedanish.observability.events.EventTrackerImpl
 import dk.tobiasthedanish.observability.utils.CleanupService
 import dk.tobiasthedanish.observability.utils.CleanupServiceImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
+import dk.tobiasthedanish.observability.export.Exporter
+import dk.tobiasthedanish.observability.export.ExporterImpl
 import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager
 import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
+import dk.tobiasthedanish.observability.scheduling.Scheduler
+import dk.tobiasthedanish.observability.scheduling.SchedulerImpl
+import dk.tobiasthedanish.observability.scheduling.Ticker
+import dk.tobiasthedanish.observability.scheduling.TickerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
 import dk.tobiasthedanish.observability.session.SessionStoreImpl
-import dk.tobiasthedanish.observability.session.dataStore
 import dk.tobiasthedanish.observability.storage.Constants
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
@@ -33,46 +38,66 @@ import dk.tobiasthedanish.observability.tracing.TraceCollector
 import dk.tobiasthedanish.observability.tracing.TraceCollectorImpl
 import dk.tobiasthedanish.observability.tracing.TraceFactory
 import dk.tobiasthedanish.observability.tracing.TraceFactoryImpl
+import dk.tobiasthedanish.observability.tracing.TraceStore
 import dk.tobiasthedanish.observability.tracing.TraceStoreImpl
+import dk.tobiasthedanish.observability.utils.ConfigService
+import dk.tobiasthedanish.observability.utils.ConfigServiceImpl
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
+import dk.tobiasthedanish.observability.utils.LocalPreferencesDataStoreImpl
+import dk.tobiasthedanish.observability.utils.ManifestReaderImpl
+import dk.tobiasthedanish.observability.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import java.util.concurrent.Executors
 
 internal class LifecycleEventsTestRunner {
     private val instrumentation: Instrumentation = InstrumentationRegistry.getInstrumentation()
     private val application = instrumentation.context.applicationContext as Application
     private val device = UiDevice.getInstance(instrumentation)
     private val database = DatabaseImpl(application)
+    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor())
     private val idFactory: IdFactory = IdFactoryImpl()
+    private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
+        dataStore = application.dataStore,
+        idFactory = idFactory
+    )
     private val sessionStore = SessionStoreImpl(
-        application.dataStore,
+        localPreferencesDataStore,
         CoroutineScope(Dispatchers.IO)
     )
     private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
+    private lateinit var traceStore: TraceStore
 
     fun wakeup() {
         device.wakeUp()
     }
 
     fun initObservability() {
+        val timeProvider: TimeProvider = AndroidTimeProvider()
+        val sessionManager = SessionManagerImpl(
+            timeProvider = timeProvider,
+            idFactory = idFactory,
+            sessionStore = sessionStore,
+            db = database,
+        )
+        traceStore = TraceStoreImpl(sessionManager, database)
+
         val config = object : ObservabilityConfigInternal {
-            override val timeProvider: TimeProvider = AndroidTimeProvider()
-            override val sessionManager: SessionManager = SessionManagerImpl(
-                timeProvider = timeProvider,
-                idFactory = idFactory,
-                sessionStore = sessionStore,
-                db = database,
-            )
-            private val traceStore = TraceStoreImpl(sessionManager, database)
+            override val timeProvider: TimeProvider = timeProvider
+            override val sessionManager: SessionManager = sessionManager
             override val traceCollector: TraceCollector = TraceCollectorImpl(traceStore = traceStore)
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory
             )
 
             private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager)
+            private val ticker: Ticker = TickerImpl(scheduler)
+            private val manifestReader = ManifestReaderImpl(application)
 
             override val cleanupService: CleanupService = CleanupServiceImpl(database)
+            override val exporter: Exporter = ExporterImpl(ticker)
+            override val configService: ConfigService = ConfigServiceImpl(manifestReader)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
             override val navigationManager: NavigationManager = NavigationManagerImpl()
             override val activityLifecycleCollector: ActivityLifecycleCollector = ActivityLifecycleCollector(
