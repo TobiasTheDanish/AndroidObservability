@@ -1,5 +1,11 @@
 package dk.tobiasthedanish.observability.storage
 
+internal data class ExportEntity(
+    val sessionEntity: SessionEntity?,
+    val eventEntities: List<EventEntity>,
+    val traceEntities: List<TraceEntity>,
+)
+
 internal data class SessionEntity(
     val id: String,
     val createdAt: Long,

@@ -2,6 +2,7 @@ package dk.tobiasthedanish.observability.storage
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
@@ -17,10 +18,14 @@ internal interface Database {
     fun createEvent(event: EventEntity)
     fun getEvent(eventId: String): EventEntity?
     fun insertEvents(events: List<EventEntity>): Boolean
+    fun setEventExported(eventId: String)
 
     fun createTrace(trace: TraceEntity)
     fun getTrace(traceId: String): TraceEntity?
     fun insertTraces(traces: List<TraceEntity>): Boolean
+    fun setTraceExported(traceId: String)
+
+    fun getDataForExport(sessionId: String): ExportEntity
 
     fun deleteExportedSessions()
 }
@@ -76,19 +81,7 @@ internal class DatabaseImpl(
         var res: SessionEntity? = null
         readableDatabase.rawQuery(Constants.SQL.GET_SESSION, arrayOf(sessionId)).use {
             if(it.moveToFirst()) {
-                val idIndex = it.getColumnIndex(Constants.DB.SessionTable.COL_ID)
-                val id = it.getString(idIndex)
-
-                val createdAtIndex = it.getColumnIndex(Constants.DB.SessionTable.COL_CREATED_AT)
-                val createdAt = it.getLong(createdAtIndex)
-
-                val crashedIndex = it.getColumnIndex(Constants.DB.SessionTable.COL_CRASHED)
-                val crashed = it.getInt(crashedIndex) == 1
-
-                val exportedIndex = it.getColumnIndex(Constants.DB.SessionTable.COL_EXPORTED)
-                val exported = it.getInt(exportedIndex) == 1
-
-                res = SessionEntity(id, createdAt, crashed, exported)
+                res = readSession(it)
             }
         }
 
@@ -160,28 +153,7 @@ internal class DatabaseImpl(
 
         readableDatabase.rawQuery(Constants.SQL.GET_EVENT, arrayOf(eventId)).use {
             if(it.moveToFirst()) {
-                val idIndex = it.getColumnIndex(Constants.DB.EventTable.COL_ID)
-                val id = it.getString(idIndex)
-
-                val createdAtIndex = it.getColumnIndex(Constants.DB.EventTable.COL_CREATED_AT)
-                val createdAt = it.getLong(createdAtIndex)
-
-                val typeIndex = it.getColumnIndex(Constants.DB.EventTable.COL_TYPE)
-                val type = it.getString(typeIndex)
-
-                val serializedDataIndex = it.getColumnIndex(Constants.DB.EventTable.COL_SERIALIZED_DATA)
-                val serializedData = it.getString(serializedDataIndex)
-
-                val sessionIdIndex = it.getColumnIndex(Constants.DB.EventTable.COL_SESSION_ID)
-                val sessionId = it.getString(sessionIdIndex)
-
-                res = EventEntity(
-                    id = id,
-                    createdAt = createdAt,
-                    type = type,
-                    serializedData = serializedData,
-                    sessionId = sessionId,
-                )
+res = readEvent(it)
             }
         }
 
@@ -214,6 +186,27 @@ internal class DatabaseImpl(
         }
     }
 
+    override fun setEventExported(eventId: String) {
+        try {
+            val values = ContentValues().apply {
+                put(Constants.DB.EventTable.COL_EXPORTED, 1)
+            }
+
+            val result = writableDatabase.update(
+                Constants.DB.EventTable.NAME,
+                values,
+                "${Constants.DB.EventTable.COL_ID} = ?",
+                arrayOf(eventId)
+            )
+
+            if (result == -1) {
+                Log.e(TAG, "Failed to set event exported for event: $eventId")
+            }
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to set event exported for event: $eventId", e)
+        }
+    }
+
     override fun createTrace(trace: TraceEntity) {
         try {
             val values = ContentValues().apply {
@@ -242,48 +235,7 @@ internal class DatabaseImpl(
 
         readableDatabase.rawQuery(Constants.SQL.GET_TRACE, arrayOf(traceId)).use {
             if(it.moveToFirst()) {
-                val idIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_TRACE_ID)
-                val id = it.getString(idIndex)
-
-                val groupIdIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_GROUP_ID)
-                val groupId = it.getString(groupIdIndex)
-
-                val parentIdIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_PARENT_ID)
-                val parentId = it.getStringOrNull(parentIdIndex)
-
-                val statusIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_STATUS)
-                val status = it.getString(statusIndex)
-
-                val createdAtIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_STARTED_AT)
-                val createdAt = it.getLong(createdAtIndex)
-
-                val endedAtIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_ENDED_AT)
-                val endedAt = it.getLong(endedAtIndex)
-
-                val errorMessageIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_ERROR_MESSAGE)
-                val errorMessage = it.getStringOrNull(errorMessageIndex)
-
-                val sessionIdIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_SESSION_ID)
-                val sessionId = it.getString(sessionIdIndex)
-
-                val nameIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_NAME)
-                val name = it.getString(nameIndex)
-
-                val hasEndedIndex = it.getColumnIndex(Constants.DB.TraceTable.COL_HAS_ENDED)
-                val hasEnded = it.getLong(hasEndedIndex)
-
-                res = TraceEntity(
-                    traceId = id,
-                    groupId = groupId,
-                    parentId = parentId,
-                    status = status,
-                    errorMessage = errorMessage,
-                    startTime = createdAt,
-                    endTime = endedAt,
-                    sessionId = sessionId,
-                    name = name,
-                    hasEnded = hasEnded == 1L,
-                )
+                res = readTrace(it)
             }
         }
 
@@ -323,6 +275,78 @@ internal class DatabaseImpl(
         }
     }
 
+    override fun setTraceExported(traceId: String) {
+        try {
+            val values = ContentValues().apply {
+                put(Constants.DB.TraceTable.COL_EXPORTED, 1)
+            }
+
+            val result = writableDatabase.update(
+                Constants.DB.TraceTable.NAME,
+                values,
+                "${Constants.DB.TraceTable.COL_TRACE_ID} = ?",
+                arrayOf(traceId)
+            )
+
+            if (result == -1) {
+                Log.e(TAG, "Failed to set trace exported for trace: $traceId")
+            }
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to set trace exported for trace: $traceId", e)
+        }
+    }
+
+    override fun getDataForExport(sessionId: String): ExportEntity {
+        val session: SessionEntity? = try {
+            readableDatabase.rawQuery(Constants.SQL.GET_SESSION_FOR_EXPORT, arrayOf(sessionId)).use {
+                if (it.moveToFirst()) {
+                    readSession(it)
+                } else {
+                    null
+                }
+            }
+        } catch (e: SQLiteException) {
+            Log.d(TAG, "Failed to get session with id $sessionId for export")
+            null
+        }
+
+        val events: List<EventEntity> = try {
+            val res = mutableListOf<EventEntity>()
+
+            readableDatabase.rawQuery(Constants.SQL.GET_EVENTS_FOR_EXPORT, arrayOf(sessionId)).use {
+                while (it.moveToNext()) {
+                    res.add(readEvent(it))
+                }
+            }
+
+            res
+        } catch (e: SQLiteException) {
+            Log.d(TAG, "Failed to get events for export for sessionID $sessionId")
+            emptyList()
+        }
+
+        val traces: List<TraceEntity> = try {
+            val res = mutableListOf<TraceEntity>()
+
+            readableDatabase.rawQuery(Constants.SQL.GET_TRACES_FOR_EXPORT, arrayOf(sessionId)).use {
+                while (it.moveToNext()) {
+                    res.add(readTrace(it))
+                }
+            }
+
+            res
+        } catch (e: SQLiteException) {
+            Log.d(TAG, "Failed to get events for export for sessionID $sessionId")
+            emptyList()
+        }
+
+        return ExportEntity(
+            sessionEntity = session,
+            eventEntities = events,
+            traceEntities = traces,
+        )
+    }
+
     override fun deleteExportedSessions() {
         try {
             val result = writableDatabase.delete(
@@ -341,5 +365,94 @@ internal class DatabaseImpl(
     override fun close() {
         writableDatabase.close()
         super.close()
+    }
+
+    // expects the cursor to be in a readable state
+    private fun readSession(cursor: Cursor): SessionEntity {
+        val idIndex = cursor.getColumnIndex(Constants.DB.SessionTable.COL_ID)
+        val id = cursor.getString(idIndex)
+
+        val createdAtIndex = cursor.getColumnIndex(Constants.DB.SessionTable.COL_CREATED_AT)
+        val createdAt = cursor.getLong(createdAtIndex)
+
+        val crashedIndex = cursor.getColumnIndex(Constants.DB.SessionTable.COL_CRASHED)
+        val crashed = cursor.getInt(crashedIndex) == 1
+
+        val exportedIndex = cursor.getColumnIndex(Constants.DB.SessionTable.COL_EXPORTED)
+        val exported = cursor.getInt(exportedIndex) == 1
+
+        return SessionEntity(id, createdAt, crashed, exported)
+    }
+
+    // expects the cursor to be in a readable state
+    private fun readEvent(cursor: Cursor): EventEntity {
+        val idIndex = cursor.getColumnIndex(Constants.DB.EventTable.COL_ID)
+        val id = cursor.getString(idIndex)
+
+        val createdAtIndex = cursor.getColumnIndex(Constants.DB.EventTable.COL_CREATED_AT)
+        val createdAt = cursor.getLong(createdAtIndex)
+
+        val typeIndex = cursor.getColumnIndex(Constants.DB.EventTable.COL_TYPE)
+        val type = cursor.getString(typeIndex)
+
+        val serializedDataIndex = cursor.getColumnIndex(Constants.DB.EventTable.COL_SERIALIZED_DATA)
+        val serializedData = cursor.getString(serializedDataIndex)
+
+        val sessionIdIndex = cursor.getColumnIndex(Constants.DB.EventTable.COL_SESSION_ID)
+        val sessionId = cursor.getString(sessionIdIndex)
+
+        return EventEntity(
+            id = id,
+            createdAt = createdAt,
+            type = type,
+            serializedData = serializedData,
+            sessionId = sessionId,
+        )
+    }
+
+    // expects the cursor to be in a readable state
+    private fun readTrace(cursor: Cursor): TraceEntity {
+        val idIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_TRACE_ID)
+        val id = cursor.getString(idIndex)
+
+        val groupIdIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_GROUP_ID)
+        val groupId = cursor.getString(groupIdIndex)
+
+        val parentIdIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_PARENT_ID)
+        val parentId = cursor.getStringOrNull(parentIdIndex)
+
+        val statusIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_STATUS)
+        val status = cursor.getString(statusIndex)
+
+        val createdAtIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_STARTED_AT)
+        val createdAt = cursor.getLong(createdAtIndex)
+
+        val endedAtIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_ENDED_AT)
+        val endedAt = cursor.getLong(endedAtIndex)
+
+        val errorMessageIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_ERROR_MESSAGE)
+        val errorMessage = cursor.getStringOrNull(errorMessageIndex)
+
+        val sessionIdIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_SESSION_ID)
+        val sessionId = cursor.getString(sessionIdIndex)
+
+        val nameIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_NAME)
+        val name = cursor.getString(nameIndex)
+
+        val hasEndedIndex = cursor.getColumnIndex(Constants.DB.TraceTable.COL_HAS_ENDED)
+        val hasEnded = cursor.getLong(hasEndedIndex)
+
+        return TraceEntity(
+            traceId = id,
+            groupId = groupId,
+            parentId = parentId,
+            status = status,
+            errorMessage = errorMessage,
+            startTime = createdAt,
+            endTime = endedAt,
+            sessionId = sessionId,
+            name = name,
+            hasEnded = hasEnded == 1L,
+        )
     }
 }

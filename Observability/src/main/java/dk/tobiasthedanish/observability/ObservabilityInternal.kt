@@ -11,6 +11,8 @@ import dk.tobiasthedanish.observability.events.EventTrackerImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.export.ExporterImpl
+import dk.tobiasthedanish.observability.http.HttpClientFactory
+import dk.tobiasthedanish.observability.http.InternalHttpClientImpl
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
@@ -110,7 +112,16 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     override val cleanupService: CleanupService = CleanupServiceImpl(
         database = database
     )
-    override val exporter: Exporter = ExporterImpl(ticker = ticker)
+    override val exporter: Exporter = ExporterImpl(
+        ticker = ticker,
+        httpService = InternalHttpClientImpl(
+            client = HttpClientFactory.client,
+            env = configService,
+        ),
+        database = database,
+        sessionManager = sessionManager,
+        scheduler = scheduler,
+    )
     override val navigationManager: NavigationManager = NavigationManagerImpl()
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
     override val navigationCollector: NavigationCollector = NavigationCollectorImpl(

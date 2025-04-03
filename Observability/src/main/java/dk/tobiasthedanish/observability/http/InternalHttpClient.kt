@@ -7,7 +7,6 @@ import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
-import kotlinx.io.IOException
 
 internal interface InternalHttpClient {
     suspend fun exportSession(session: SessionDTO): HttpResponse
@@ -37,7 +36,7 @@ internal class InternalHttpClientImpl(
                 201 -> HttpResponse.Success(body)
                 else -> HttpResponse.Error.UnknownError()
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             return HttpResponse.Error.UnknownError(e)
         }
     }
@@ -58,7 +57,7 @@ internal class InternalHttpClientImpl(
                 201 -> HttpResponse.Success(body)
                 else -> HttpResponse.Error.UnknownError()
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             return HttpResponse.Error.UnknownError(e)
         }
     }
@@ -80,7 +79,7 @@ internal class InternalHttpClientImpl(
                 201 -> HttpResponse.Success(body)
                 else -> HttpResponse.Error.UnknownError()
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             return HttpResponse.Error.UnknownError(e)
         }
     }
@@ -102,9 +101,8 @@ internal class InternalHttpClientImpl(
                 201 -> HttpResponse.Success(body)
                 else -> HttpResponse.Error.UnknownError()
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             return HttpResponse.Error.UnknownError(e)
         }
     }
-
 }

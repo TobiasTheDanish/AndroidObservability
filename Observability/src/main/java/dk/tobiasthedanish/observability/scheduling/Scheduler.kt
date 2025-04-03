@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.scheduling
 
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Callable
 import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
@@ -10,16 +11,26 @@ internal interface Scheduler {
     @Throws(RejectedExecutionException::class)
     fun <T> start(callable: Callable<T>): Future<T>
     @Throws(RejectedExecutionException::class)
+    fun <T> start(block: suspend () -> T): Future<T>
+    @Throws(RejectedExecutionException::class)
     fun <T> schedule(callable: Callable<T>, delayMillis: Long): Future<T>
     @Throws(RejectedExecutionException::class)
     fun scheduleAtRate(runnable: Runnable, rateMillis: Long, initialDelayMillis: Long = 0): Future<*>
 }
 
 internal class SchedulerImpl(
-    private val executorService: ScheduledExecutorService
+    private val executorService: ScheduledExecutorService,
 ): Scheduler {
     override fun <T> start(callable: Callable<T>): Future<T> {
         return executorService.submit(callable)
+    }
+
+    override fun <T> start(block: suspend () -> T): Future<T> {
+        return executorService.submit(Callable {
+            runBlocking {
+                block()
+            }
+        })
     }
 
     override fun <T> schedule(callable: Callable<T>, delayMillis: Long): Future<T> {

@@ -24,6 +24,7 @@ internal sealed class Constants {
             const val COL_TYPE = "type"
             const val COL_SERIALIZED_DATA = "serialized_data"
             const val COL_CREATED_AT = "created_at"
+            const val COL_EXPORTED = "is_exported"
         }
 
         data object TraceTable {
@@ -38,6 +39,7 @@ internal sealed class Constants {
             const val COL_ENDED_AT = "ended_at"
             const val COL_HAS_ENDED = "has_ended"
             const val COL_ERROR_MESSAGE = "error_message"
+            const val COL_EXPORTED = "is_exported"
         }
     }
 
@@ -87,6 +89,11 @@ internal sealed class Constants {
                 WHERE ${DB.SessionTable.COL_ID} = ?
             """
 
+        const val GET_SESSION_FOR_EXPORT = """
+                SELECT * FROM ${DB.SessionTable.NAME}
+                WHERE ${DB.SessionTable.COL_ID} = ? AND ${DB.SessionTable.COL_EXPORTED} = 0
+            """
+
         const val CREATE_EVENTS_TABLE = """
             CREATE TABLE IF NOT EXISTS ${DB.EventTable.NAME} (
                 ${DB.EventTable.COL_ID} TEXT PRIMARY KEY,
@@ -94,6 +101,7 @@ internal sealed class Constants {
                 ${DB.EventTable.COL_TYPE} TEXT NOT NULL,
                 ${DB.EventTable.COL_SERIALIZED_DATA} TEXT,
                 ${DB.EventTable.COL_CREATED_AT} INTEGER NOT NULL,
+                ${DB.EventTable.COL_EXPORTED} INTEGER DEFAULT 0,
                 FOREIGN KEY (${DB.EventTable.COL_SESSION_ID}) 
                     REFERENCES ${DB.SessionTable.NAME}(${DB.SessionTable.COL_ID})
                     ON UPDATE CASCADE
@@ -104,6 +112,11 @@ internal sealed class Constants {
         const val GET_EVENT = """
                 SELECT * FROM ${DB.EventTable.NAME}
                 WHERE ${DB.EventTable.COL_ID} = ?
+            """
+
+        const val GET_EVENTS_FOR_EXPORT = """
+                SELECT * FROM ${DB.EventTable.NAME}
+                WHERE ${DB.EventTable.COL_SESSION_ID} = ? AND ${DB.EventTable.COL_EXPORTED} = 0
             """
 
         const val CREATE_TRACE_TABLE = """
@@ -118,6 +131,7 @@ internal sealed class Constants {
                 ${DB.TraceTable.COL_STARTED_AT} INTEGER NOT NULL,
                 ${DB.TraceTable.COL_ENDED_AT} INTEGER NOT NULL,
                 ${DB.TraceTable.COL_HAS_ENDED} INTEGER NOT NULL,
+                ${DB.TraceTable.COL_EXPORTED} INTEGER DEFAULT 0,
                 FOREIGN KEY (${DB.TraceTable.COL_SESSION_ID}) 
                     REFERENCES ${DB.SessionTable.NAME}(${DB.SessionTable.COL_ID})
                     ON UPDATE CASCADE
@@ -128,6 +142,11 @@ internal sealed class Constants {
         const val GET_TRACE = """
                 SELECT * FROM ${DB.TraceTable.NAME}
                 WHERE ${DB.TraceTable.COL_TRACE_ID} = ?
+            """
+
+        const val GET_TRACES_FOR_EXPORT = """
+                SELECT * FROM ${DB.TraceTable.NAME}
+                WHERE ${DB.TraceTable.COL_SESSION_ID} = ? AND ${DB.TraceTable.COL_EXPORTED} = 0
             """
     }
 }

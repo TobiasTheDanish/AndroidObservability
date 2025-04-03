@@ -7,7 +7,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
 internal object HttpClientFactory {
-    private val client: HttpClient by lazy {
+    val client: HttpClient by lazy {
         HttpClient(CIO) {
             install(ContentNegotiation) {
                 json(Json {
