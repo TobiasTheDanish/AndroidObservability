@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal interface Exporter: Collector {
     fun resume()
     fun pause()
+    fun export(sessionId: String)
 }
 
 private const val DEFAULT_TIME_BETWEEN_EXPORTS = 30_000L
@@ -56,20 +57,28 @@ internal class ExporterImpl(
 
     override fun unregister() {
         if (isRegistered.compareAndSet(true, false)) {
-            pause()
             export()
+            ticker.stop()
         }
     }
 
     private fun export() {
+        val sessionId = sessionManager.getSessionId()
+
+        export(sessionId)
+    }
+
+    override fun export(sessionId: String) {
+        Log.d(TAG, "Exporting sessionId $sessionId")
         if (isExporting.compareAndSet(false, true)) {
             try {
-                val sessionId = sessionManager.getSessionId()
                 val data = database.getDataForExport(sessionId)
                 if (data.sessionEntity == null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
                     Log.i(TAG, "No data to export returning early")
                     return
                 }
+
+                Log.d(TAG, "Data to export: $data")
 
                 val futures = mutableListOf<Future<*>>()
                 if (data.sessionEntity != null) {
@@ -187,16 +196,22 @@ internal class ExporterImpl(
                     }
                 }
 
-                futures.forEach {
+                Log.d(TAG, "Futures: ${futures.size}")
+
+                futures.forEachIndexed { index, it ->
                     try {
+                        Log.d(TAG, "Waiting for future #$index: $it")
                         it.get()
                     } catch (e: CancellationException) {
                         Log.e(TAG, "Export future was cancelled", e)
                     }
                 }
             } finally {
+                Log.i(TAG, "Finished exporting sessionId: $sessionId")
                 isExporting.set(false)
             }
+        } else {
+            Log.i(TAG, "Export already running")
         }
     }
 }

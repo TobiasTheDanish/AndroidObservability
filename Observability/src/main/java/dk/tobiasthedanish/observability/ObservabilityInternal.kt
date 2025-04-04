@@ -50,6 +50,7 @@ import dk.tobiasthedanish.observability.utils.ManifestReaderImpl
 import dk.tobiasthedanish.observability.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.Executors
 
 internal interface ObservabilityConfigInternal {
@@ -72,7 +73,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     ObservabilityConfigInternal {
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
-    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor())
+    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
     private val ticker: Ticker = TickerImpl(scheduler)
     private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
@@ -93,9 +94,20 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         sessionStore = sessionStore,
         db = database,
     )
+    override val exporter: Exporter = ExporterImpl(
+        ticker = ticker,
+        httpService = InternalHttpClientImpl(
+            client = HttpClientFactory.client,
+            env = configService,
+        ),
+        database = database,
+        sessionManager = sessionManager,
+        scheduler = scheduler,
+    )
     private val eventTracker: EventTracker = EventTrackerImpl(
         eventStore = eventStore,
-        sessionManager = sessionManager
+        sessionManager = sessionManager,
+        exporter = exporter,
     )
     private val traceStore: TraceStore = TraceStoreImpl(
         sessionManager = sessionManager,
@@ -111,16 +123,6 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     )
     override val cleanupService: CleanupService = CleanupServiceImpl(
         database = database
-    )
-    override val exporter: Exporter = ExporterImpl(
-        ticker = ticker,
-        httpService = InternalHttpClientImpl(
-            client = HttpClientFactory.client,
-            env = configService,
-        ),
-        database = database,
-        sessionManager = sessionManager,
-        scheduler = scheduler,
     )
     override val navigationManager: NavigationManager = NavigationManagerImpl()
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
@@ -216,6 +218,11 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
 
     fun startTrace(name: String): Trace {
         return traceFactory.startTrace(name)
+    }
+
+    @TestOnly
+    internal fun triggerExport() {
+        exporter.export(sessionManager.getSessionId())
     }
 
     override fun onAppForeground() {

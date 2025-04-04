@@ -1,6 +1,9 @@
 package dk.tobiasthedanish.observability.scheduling
 
-import kotlinx.coroutines.runBlocking
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.future.asCompletableFuture
 import java.util.concurrent.Callable
 import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
@@ -18,19 +21,25 @@ internal interface Scheduler {
     fun scheduleAtRate(runnable: Runnable, rateMillis: Long, initialDelayMillis: Long = 0): Future<*>
 }
 
+private const val TAG = "SchedulerImpl"
+
 internal class SchedulerImpl(
     private val executorService: ScheduledExecutorService,
+    private val scope: CoroutineScope,
 ): Scheduler {
     override fun <T> start(callable: Callable<T>): Future<T> {
+        Log.d(TAG, "start called with callable")
         return executorService.submit(callable)
     }
 
     override fun <T> start(block: suspend () -> T): Future<T> {
-        return executorService.submit(Callable {
-            runBlocking {
-                block()
-            }
-        })
+        Log.d(TAG, "start called with suspend block")
+        return scope.async {
+            Log.d(TAG, "Start of suspend block")
+            val res = block()
+            Log.d(TAG, "End of suspend block")
+            res
+        }.asCompletableFuture()
     }
 
     override fun <T> schedule(callable: Callable<T>, delayMillis: Long): Future<T> {

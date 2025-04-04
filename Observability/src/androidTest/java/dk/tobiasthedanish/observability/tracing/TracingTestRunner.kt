@@ -17,6 +17,8 @@ import dk.tobiasthedanish.observability.events.EventTrackerImpl
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.export.ExporterImpl
+import dk.tobiasthedanish.observability.http.HttpClientFactory
+import dk.tobiasthedanish.observability.http.InternalHttpClientImpl
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
@@ -53,7 +55,7 @@ class TracingTestRunner {
     private val application = instrumentation.context.applicationContext as Application
     private val device = UiDevice.getInstance(instrumentation)
     private val database = DatabaseImpl(application)
-    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor())
+    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
     private val idFactory: IdFactory = IdFactoryImpl()
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
@@ -84,13 +86,14 @@ class TracingTestRunner {
                 timeProvider, traceCollector, idFactory
             )
 
-            private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager)
             private val ticker: Ticker = TickerImpl(scheduler)
             private val manifestReader = ManifestReaderImpl(application)
 
             override val cleanupService: CleanupService = CleanupServiceImpl(database)
-            override val exporter: Exporter = ExporterImpl(ticker)
             override val configService: ConfigService = ConfigServiceImpl(manifestReader)
+            private val httpService = InternalHttpClientImpl(HttpClientFactory.client, configService)
+            override val exporter: Exporter = ExporterImpl(ticker, httpService, database, sessionManager, scheduler)
+            private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
             override val navigationManager: NavigationManager = NavigationManagerImpl()
             override val activityLifecycleCollector: ActivityLifecycleCollector = ActivityLifecycleCollector(

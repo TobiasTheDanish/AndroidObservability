@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.annotation.VisibleForTesting
 import dk.tobiasthedanish.observability.tracing.Trace
+import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Observability {
@@ -63,5 +64,10 @@ object Observability {
         observability = ObservabilityInternal(configInternal)
         observability.init()
         this.start()
+    }
+
+    @TestOnly
+    internal fun triggerExport() {
+        observability.triggerExport()
     }
 }
