@@ -30,6 +30,8 @@ internal class TraceStoreImpl(
         }
         val sessionId = sessionManager.getSessionId()
 
+        Log.d(TAG, "Storing trace ${trace.traceId}, in group: ${trace.groupId}")
+
         val entity = TraceEntity(
             traceId = trace.traceId,
             groupId = trace.groupId,
@@ -51,6 +53,7 @@ internal class TraceStoreImpl(
 
     override fun flush() {
         if (isFlushing.compareAndSet(false, true)) {
+            Log.d(TAG, "Flushing traces")
             try {
                 val traceList = mutableListOf<TraceEntity>()
                 queue.drainTo(traceList)
@@ -67,6 +70,8 @@ internal class TraceStoreImpl(
             } finally {
                 isFlushing.set(false)
             }
+        } else {
+            Log.d(TAG, "Trace flush is already in progress")
         }
     }
 }

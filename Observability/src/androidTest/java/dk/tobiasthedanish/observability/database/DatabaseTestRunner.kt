@@ -97,7 +97,7 @@ internal class DatabaseTestRunner {
     }
 
     fun deleteExportedSessions() {
-        database.deleteExportedSessions()
+        database.deleteOldExportedSessions("")
     }
 
     fun createSession(): SessionEntity {

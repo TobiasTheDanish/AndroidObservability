@@ -27,7 +27,7 @@ internal interface Database {
 
     fun getDataForExport(sessionId: String): ExportEntity
 
-    fun deleteExportedSessions()
+    fun deleteOldExportedSessions(currentSessionId: String)
 }
 
 private const val TAG = "DatabaseImpl"
@@ -347,12 +347,12 @@ res = readEvent(it)
         )
     }
 
-    override fun deleteExportedSessions() {
+    override fun deleteOldExportedSessions(currentSessionId: String) {
         try {
             val result = writableDatabase.delete(
                 Constants.DB.SessionTable.NAME,
-                "${Constants.DB.SessionTable.COL_EXPORTED} = 1",
-                null
+                "${Constants.DB.SessionTable.COL_ID} != ? AND ${Constants.DB.SessionTable.COL_EXPORTED} = 1",
+                arrayOf(currentSessionId)
             )
             if (result == -1) {
                 Log.e(TAG, "Failed to delete exported sessions")

@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.session
 
+import android.util.Log
 import dk.tobiasthedanish.observability.events.Event
 import dk.tobiasthedanish.observability.events.EventTypes
 import dk.tobiasthedanish.observability.exception.ExceptionEvent
@@ -18,6 +19,7 @@ internal interface SessionManager: AppLifecycleListener {
 
 private const val SESSION_MAX_DURATION_MS = 21600000
 private const val SESSION_MAX_TIME_SINCE_EVENT = 1200000
+private const val TAG = "SessionManagerImpl"
 
 internal class SessionManagerImpl(
     private val timeProvider: TimeProvider,
@@ -32,7 +34,10 @@ internal class SessionManagerImpl(
         val recentSession = sessionStore.getRecent()
 
         currentSession = when {
-            recentSession != null && continueSession(recentSession) -> recentSession
+            recentSession != null && continueSession(recentSession) -> {
+                Log.d(TAG, "Reusing session with id: ${recentSession.id}")
+                recentSession
+            }
             else -> createNewSession()
         }
     }
@@ -74,23 +79,27 @@ internal class SessionManagerImpl(
 
     private fun continueSession(session: Session): Boolean {
         if (session.crashed) {
+            Log.d(TAG, "Recent session crashed. DONT continue this session")
             return false
         }
 
         val sessionDuration = timeProvider.now() - session.createdAt
-        if (SESSION_MAX_DURATION_MS < sessionDuration || sessionDuration > 0) {
+        if (SESSION_MAX_DURATION_MS < sessionDuration || sessionDuration < 0) {
+            Log.d(TAG, "Duration of session (${sessionDuration}MS) exceeded max duration ($SESSION_MAX_DURATION_MS). DONT continue this session")
             return false
         }
 
         if (session.lastEventTime > 0) {
             val timeSinceLastEvent = timeProvider.now() - session.lastEventTime
-            return SESSION_MAX_TIME_SINCE_EVENT < timeSinceLastEvent || timeSinceLastEvent < 0
+            Log.d(TAG, "Last event time: ${session.lastEventTime}, Time since last event: $timeSinceLastEvent, max time since last event: ${SESSION_MAX_TIME_SINCE_EVENT}. If true continue this session: ${SESSION_MAX_TIME_SINCE_EVENT < timeSinceLastEvent || timeSinceLastEvent < 0}")
+            return timeSinceLastEvent in 0..<SESSION_MAX_TIME_SINCE_EVENT
         }
 
         return true
     }
 
     private fun createNewSession(): Session {
+        Log.d(TAG, "Creating new session")
         val newSession = Session(
             id = idFactory.uuid(),
             createdAt = timeProvider.now()

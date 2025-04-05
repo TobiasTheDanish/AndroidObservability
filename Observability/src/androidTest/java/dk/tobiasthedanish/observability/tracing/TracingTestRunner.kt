@@ -55,33 +55,36 @@ class TracingTestRunner {
     private val application = instrumentation.context.applicationContext as Application
     private val device = UiDevice.getInstance(instrumentation)
     private val database = DatabaseImpl(application)
-    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
-    private val idFactory: IdFactory = IdFactoryImpl()
-    private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
-        dataStore = application.dataStore,
-        idFactory = idFactory
-    )
-    private val sessionStore = SessionStoreImpl(
-        localPreferencesDataStore,
-        CoroutineScope(Dispatchers.IO)
-    )
-    private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
-    private lateinit var traceStore: TraceStore
 
     fun initObservability() {
-        val timeProvider: TimeProvider = AndroidTimeProvider()
-        val sessionManager = SessionManagerImpl(
-            timeProvider = timeProvider,
-            idFactory = idFactory,
-            sessionStore = sessionStore,
-            db = database,
-        )
-        traceStore = TraceStoreImpl(sessionManager, database)
 
         val config = object : ObservabilityConfigInternal {
-            override val timeProvider: TimeProvider = timeProvider
-            override val sessionManager: SessionManager = sessionManager
-            override val traceCollector: TraceCollector = TraceCollectorImpl(traceStore = traceStore)
+            private val scheduler: Scheduler = SchedulerImpl(
+                Executors.newSingleThreadScheduledExecutor(),
+                CoroutineScope(Dispatchers.IO)
+            )
+            private val idFactory: IdFactory = IdFactoryImpl()
+            private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
+                dataStore = application.dataStore,
+                idFactory = idFactory
+            )
+            private val sessionStore = SessionStoreImpl(
+                localPreferencesDataStore,
+                CoroutineScope(Dispatchers.IO)
+            )
+            override val eventStore: EventStore =
+                EventStoreImpl(db = database, idFactory = idFactory)
+
+            override val timeProvider: TimeProvider = AndroidTimeProvider()
+            override val sessionManager: SessionManager = SessionManagerImpl(
+                timeProvider = timeProvider,
+                idFactory = idFactory,
+                sessionStore = sessionStore,
+                db = database,
+            )
+            override val traceStore = TraceStoreImpl(sessionManager, database)
+            override val traceCollector: TraceCollector =
+                TraceCollectorImpl(traceStore = traceStore)
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory
             )
@@ -89,28 +92,35 @@ class TracingTestRunner {
             private val ticker: Ticker = TickerImpl(scheduler)
             private val manifestReader = ManifestReaderImpl(application)
 
-            override val cleanupService: CleanupService = CleanupServiceImpl(database)
+            override val cleanupService: CleanupService =
+                CleanupServiceImpl(database, sessionManager)
             override val configService: ConfigService = ConfigServiceImpl(manifestReader)
-            private val httpService = InternalHttpClientImpl(HttpClientFactory.client, configService)
-            override val exporter: Exporter = ExporterImpl(ticker, httpService, database, sessionManager, scheduler)
-            private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
+            private val httpService =
+                InternalHttpClientImpl(HttpClientFactory.client, configService)
+            override val exporter: Exporter =
+                ExporterImpl(ticker, httpService, database, sessionManager, scheduler)
+            private val eventTracker: EventTracker =
+                EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
             override val navigationManager: NavigationManager = NavigationManagerImpl()
-            override val activityLifecycleCollector: ActivityLifecycleCollector = ActivityLifecycleCollector(
-                lifecycleManager = lifecycleManager,
-                eventTracker = eventTracker,
-                timeProvider = timeProvider
-            )
+            override val activityLifecycleCollector: ActivityLifecycleCollector =
+                ActivityLifecycleCollector(
+                    lifecycleManager = lifecycleManager,
+                    eventTracker = eventTracker,
+                    timeProvider = timeProvider
+                )
             override val appLifecycleCollector: AppLifecycleCollector = AppLifecycleCollector(
                 lifecycleManager = lifecycleManager,
                 eventTracker = eventTracker,
                 timeProvider = timeProvider
             )
-            override val unhandledExceptionCollector: UnhandledExceptionCollector = UnhandledExceptionCollector(
-                eventTracker = eventTracker,
-                timeProvider = timeProvider,
-            )
-            override val navigationCollector: NavigationCollector = NavigationCollectorImpl(eventTracker, timeProvider)
+            override val unhandledExceptionCollector: UnhandledExceptionCollector =
+                UnhandledExceptionCollector(
+                    eventTracker = eventTracker,
+                    timeProvider = timeProvider,
+                )
+            override val navigationCollector: NavigationCollector =
+                NavigationCollectorImpl(eventTracker, timeProvider)
         }
 
         Observability.initInstrumentationTest(config)
@@ -131,57 +141,5 @@ class TracingTestRunner {
     fun pressHome() {
         device.pressHome()
         device.waitForIdle()
-    }
-
-    fun didStoreTrace(groupId: String): Boolean {
-        return tracesStoredCount(groupId) > 0
-    }
-
-    fun tracesStoredCount(groupId: String): Int {
-        try {
-            traceStore.flush()
-            database.readableDatabase.rawQuery(
-                """
-                    SELECT COUNT(${Constants.DB.TraceTable.COL_TRACE_ID}) AS count 
-                    FROM ${Constants.DB.TraceTable.NAME} 
-                    WHERE ${Constants.DB.TraceTable.COL_GROUP_ID} = ?
-                """.trimIndent(),
-                arrayOf(groupId)
-            ).use {
-                if (it.moveToFirst()) {
-                    val count = it.getInt(it.getColumnIndex("count"))
-                    return count
-                } else {
-                    Log.e("tracesStoredCount", "Cursor was empty")
-                    return -1
-                }
-            }
-        } catch (e: SQLiteException) {
-            Log.e("tracesStoredCount", "Database error", e)
-            return -1
-        }
-    }
-
-    fun logTraces() {
-        try {
-            traceStore.flush()
-            database.readableDatabase.rawQuery(
-                """
-                    SELECT ${Constants.DB.TraceTable.COL_TRACE_ID}, ${Constants.DB.TraceTable.COL_GROUP_ID}, ${Constants.DB.TraceTable.COL_NAME}  
-                    FROM ${Constants.DB.TraceTable.NAME} 
-                """.trimIndent(),
-                arrayOf()
-            ).use {
-                while (it.moveToNext()) {
-                    val traceId = it.getString(it.getColumnIndex(Constants.DB.TraceTable.COL_TRACE_ID))
-                    val groupId = it.getString(it.getColumnIndex(Constants.DB.TraceTable.COL_GROUP_ID))
-                    val name = it.getString(it.getColumnIndex(Constants.DB.TraceTable.COL_NAME))
-
-                    Log.d("logTraces", "name: $name, groupId: $groupId, traceId: $traceId")
-                }
-            }
-        } catch (e: SQLiteException) {
-            Log.e("logTraces", "Database error", e)
-        }
     }
 }

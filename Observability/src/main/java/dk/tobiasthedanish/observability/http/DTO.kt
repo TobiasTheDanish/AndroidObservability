@@ -3,6 +3,13 @@ package dk.tobiasthedanish.observability.http
 import kotlinx.serialization.Serializable
 
 @Serializable
+internal data class ExportDTO(
+    val session: SessionDTO?,
+    val events: List<EventDTO>,
+    val traces: List<TraceDTO>,
+)
+
+@Serializable
 internal data class SessionDTO(
     val id: String,
     val installationId: String,

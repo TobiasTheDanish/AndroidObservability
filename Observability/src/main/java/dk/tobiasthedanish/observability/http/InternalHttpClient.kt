@@ -12,6 +12,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
 internal interface InternalHttpClient {
+    suspend fun exportCollection(collection: ExportDTO): HttpResponse
     suspend fun exportSession(session: SessionDTO): HttpResponse
     suspend fun markSessionCrashed(sessionId: String): HttpResponse
     suspend fun exportEvent(event: EventDTO): HttpResponse
@@ -24,6 +25,32 @@ internal class InternalHttpClientImpl(
     private val client: HttpClient,
     private val env: ConfigService,
 ): InternalHttpClient {
+    override suspend fun exportCollection(collection: ExportDTO): HttpResponse {
+        try {
+            Log.d(TAG, "Start export collection. URL: '${env.baseUrl}/api/v1/collection'")
+            val res = client.post("${env.baseUrl}/api/v1/collection") {
+                headers {
+                    bearerAuth(env.apiKey)
+                }
+                contentType(ContentType.Application.Json)
+                setBody(collection)
+            }
+
+            val body = res.bodyAsText()
+
+            Log.d(TAG, "exportCollection response body: $body")
+            return when (val status = res.status.value) {
+                in (500..599) -> HttpResponse.Error.ServerError(status, body)
+                in (400..499) -> HttpResponse.Error.ClientError(status, body)
+                201 -> HttpResponse.Success(body)
+                else -> HttpResponse.Error.UnknownError()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception thrown when exporting collection: ${e.message}", e)
+            return HttpResponse.Error.UnknownError(e)
+        }
+    }
+
     override suspend fun exportSession(session: SessionDTO): HttpResponse {
         try {
             Log.d(TAG, "Start export session. URL: '${env.baseUrl}/api/v1/sessions'")

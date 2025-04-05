@@ -37,7 +37,6 @@ internal class UnhandledExceptionCollector(
                 timeStamp = timeProvider.now(),
                 type = EventTypes.UNHANDLED_EXCEPTION,
             )
-
         } finally {
             originalUncaughtExceptionHandler?.uncaughtException(thread, throwable)
         }

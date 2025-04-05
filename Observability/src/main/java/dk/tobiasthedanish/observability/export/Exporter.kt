@@ -3,6 +3,7 @@ package dk.tobiasthedanish.observability.export
 import android.util.Log
 import dk.tobiasthedanish.observability.collector.Collector
 import dk.tobiasthedanish.observability.http.EventDTO
+import dk.tobiasthedanish.observability.http.ExportDTO
 import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InternalHttpClient
 import dk.tobiasthedanish.observability.http.SessionDTO
@@ -16,7 +17,7 @@ import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal interface Exporter: Collector {
+internal interface Exporter : Collector {
     fun resume()
     fun pause()
     fun export(sessionId: String)
@@ -31,7 +32,7 @@ internal class ExporterImpl(
     private val database: Database,
     private val sessionManager: SessionManager,
     private val scheduler: Scheduler,
-): Exporter {
+) : Exporter {
     private var isRegistered = AtomicBoolean(false)
     private var isExporting = AtomicBoolean(false)
 
@@ -68,6 +69,69 @@ internal class ExporterImpl(
         export(sessionId)
     }
 
+    private fun exportSession(sessionDTO: SessionDTO) {
+        val future = try {
+            scheduler.start {
+                val response = httpService.exportSession(sessionDTO)
+
+                when (response) {
+                    is HttpResponse.Success -> {
+                        database.setSessionExported(sessionDTO.id)
+                    }
+
+                    is HttpResponse.Error -> {
+                        Log.e(TAG, "Failed to export session with id: ${sessionDTO.id}")
+                    }
+                }
+            }
+        } catch (e: RejectedExecutionException) {
+            Log.e(
+                TAG,
+                "Execution of session export was rejected, for session with id: ${sessionDTO.id}",
+                e
+            )
+            null
+        }
+
+        future?.get()
+    }
+
+    private fun exportCollection(collection: ExportDTO) {
+        val future = try {
+            scheduler.start {
+                val response = httpService.exportCollection(collection)
+
+                when (response) {
+                    is HttpResponse.Success -> {
+                        if (collection.session != null) {
+                            database.setSessionExported(collection.session.id)
+                        }
+
+                        collection.events.forEach {
+                            database.setEventExported(it.id)
+                        }
+                        collection.traces.forEach {
+                            database.setTraceExported(it.traceId)
+                        }
+                    }
+
+                    is HttpResponse.Error -> {
+                        Log.e(TAG, "Failed to export collection for session with id: ${collection.session?.id}")
+                    }
+                }
+            }
+        } catch (e: RejectedExecutionException) {
+            Log.e(
+                TAG,
+                "Execution of collection export was rejected, for session with id: ${collection.session?.id}",
+                e
+            )
+            null
+        }
+
+        future?.get()
+    }
+
     override fun export(sessionId: String) {
         Log.d(TAG, "Exporting sessionId $sessionId")
         if (isExporting.compareAndSet(false, true)) {
@@ -80,131 +144,49 @@ internal class ExporterImpl(
 
                 Log.d(TAG, "Data to export: $data")
 
-                val futures = mutableListOf<Future<*>>()
-                if (data.sessionEntity != null) {
-                    val future = try {
-                        scheduler.start {
-                            val response = httpService.exportSession(
-                                SessionDTO(
-                                    id = data.sessionEntity.id,
-                                    installationId = "",
-                                    createdAt = data.sessionEntity.createdAt,
-                                    crashed = data.sessionEntity.crashed,
+                if (data.sessionEntity != null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
+                    exportSession(
+                        SessionDTO(
+                            id = data.sessionEntity.id,
+                            installationId = "",
+                            createdAt = data.sessionEntity.createdAt,
+                            crashed = data.sessionEntity.crashed,
+                        )
+                    )
+                } else {
+                    exportCollection(
+                        ExportDTO(
+                            session = if (data.sessionEntity != null) SessionDTO(
+                                id = data.sessionEntity.id,
+                                installationId = "",
+                                createdAt = data.sessionEntity.createdAt,
+                                crashed = data.sessionEntity.crashed,
+                            ) else null,
+                            events = data.eventEntities.map {
+                                EventDTO(
+                                    id = it.id,
+                                    sessionId = it.sessionId,
+                                    serializedData = it.serializedData,
+                                    type = it.type,
+                                    createdAt = it.createdAt
                                 )
-                            )
-
-                            when(response) {
-                                is HttpResponse.Success -> {
-                                    database.setSessionExported(data.sessionEntity.id)
-                                }
-                                is HttpResponse.Error -> {
-                                    Log.e(TAG, "Failed to export session with id: $sessionId")
-                                }
-                            }
-                        }
-                    } catch (e: RejectedExecutionException) {
-                        Log.e(
-                            TAG,
-                            "Execution of session export was rejected, for session with id: $sessionId",
-                            e
-                        )
-                        null
-                    }
-                    if (future != null) {
-                        futures.add(future)
-                    }
-                }
-
-                if (data.eventEntities.isNotEmpty()) {
-                    val future = try {
-                        scheduler.start {
-                            data.eventEntities.forEach { entity ->
-                                val response = httpService.exportEvent(EventDTO(
-                                    id = entity.id,
-                                    sessionId = entity.sessionId,
-                                    type = entity.type,
-                                    serializedData = entity.serializedData,
-                                    createdAt = entity.createdAt,
-                                ))
-
-                                when(response) {
-                                    is HttpResponse.Success -> {
-                                        database.setEventExported(entity.id)
-                                    }
-                                    is HttpResponse.Error -> {
-                                        Log.e(TAG, "Failed to export event with id: ${entity.id}")
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e: RejectedExecutionException) {
-                        Log.e(
-                            TAG,
-                            "Execution of event export was rejected",
-                            e
-                        )
-                        null
-                    }
-                    if (future != null) {
-                        futures.add(future)
-                    }
-                }
-
-                if (data.traceEntities.isNotEmpty()) {
-                    val future = try {
-                        scheduler.start {
-                            data.traceEntities.forEach { entity ->
-                                val response = httpService.exportTrace(
-                                    TraceDTO(
-                                        traceId = entity.traceId,
-                                        groupId = entity.groupId,
-                                        parentId = entity.parentId,
-                                        sessionId = entity.sessionId,
-                                        name = entity.name,
-                                        errorMessage = entity.errorMessage,
-                                        status = entity.status,
-                                        startTime = entity.startTime,
-                                        endTime = entity.endTime,
-                                        hasEnded = entity.hasEnded,
-                                    )
+                            },
+                            traces = data.traceEntities.map {
+                                TraceDTO(
+                                    traceId = it.traceId,
+                                    groupId = it.groupId,
+                                    sessionId = it.sessionId,
+                                    parentId = it.parentId,
+                                    name = it.name,
+                                    status = it.status,
+                                    errorMessage = it.errorMessage,
+                                    startTime = it.startTime,
+                                    endTime = it.endTime,
+                                    hasEnded = it.hasEnded,
                                 )
-
-                                when (response) {
-                                    is HttpResponse.Success -> {
-                                        database.setTraceExported(entity.traceId)
-                                    }
-
-                                    is HttpResponse.Error -> {
-                                        Log.e(
-                                            TAG,
-                                            "Failed to export trace with id: ${entity.traceId}"
-                                        )
-                                    }
-                                }
                             }
-                        }
-                    } catch (e: RejectedExecutionException) {
-                        Log.e(
-                            TAG,
-                            "Execution of trace export was rejected",
-                            e
                         )
-                        null
-                    }
-                    if (future != null) {
-                        futures.add(future)
-                    }
-                }
-
-                Log.d(TAG, "Futures: ${futures.size}")
-
-                futures.forEachIndexed { index, it ->
-                    try {
-                        Log.d(TAG, "Waiting for future #$index: $it")
-                        it.get()
-                    } catch (e: CancellationException) {
-                        Log.e(TAG, "Export future was cancelled", e)
-                    }
+                    )
                 }
             } finally {
                 Log.i(TAG, "Finished exporting sessionId: $sessionId")

@@ -67,6 +67,8 @@ internal interface ObservabilityConfigInternal {
     val cleanupService: CleanupService
     val exporter: Exporter
     val configService: ConfigService
+    val eventStore: EventStore
+    val traceStore: TraceStore
 }
 
 internal class ObservabilityConfigInternalImpl(application: Application) :
@@ -75,7 +77,6 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     private val idFactory: IdFactory = IdFactoryImpl()
     private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
     private val ticker: Ticker = TickerImpl(scheduler)
-    private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
         idFactory = idFactory
@@ -104,12 +105,13 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         sessionManager = sessionManager,
         scheduler = scheduler,
     )
+    override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val eventTracker: EventTracker = EventTrackerImpl(
         eventStore = eventStore,
         sessionManager = sessionManager,
         exporter = exporter,
     )
-    private val traceStore: TraceStore = TraceStoreImpl(
+    override val traceStore: TraceStore = TraceStoreImpl(
         sessionManager = sessionManager,
         db = database,
     )
@@ -122,7 +124,8 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         timeProvider = timeProvider,
     )
     override val cleanupService: CleanupService = CleanupServiceImpl(
-        database = database
+        database = database,
+        sessionManager = sessionManager,
     )
     override val navigationManager: NavigationManager = NavigationManagerImpl()
     override val lifecycleManager: LifecycleManager = LifecycleManager(application)
@@ -160,6 +163,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val cleanupService by lazy { config.cleanupService }
     private val exporter by lazy { config.exporter }
     private val configService by lazy { config.configService }
+    private val eventStore by lazy { config.eventStore }
+    private val traceStore by lazy { config.traceStore }
 
     private var isInitialized: Boolean = false
     private var isStarted: Boolean = false
@@ -222,6 +227,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
 
     @TestOnly
     internal fun triggerExport() {
+        eventStore.flush()
+        traceStore.flush()
         exporter.export(sessionManager.getSessionId())
     }
 

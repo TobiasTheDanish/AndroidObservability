@@ -53,7 +53,7 @@ internal class EventStoreImpl(
             serializedData = serializedData,
         )
 
-        if (!queue.offer(entity)) {
+        if (event.isUnhandledException() || !queue.offer(entity)) {
             db.createEvent(entity)
             flush()
         }
@@ -78,5 +78,9 @@ internal class EventStoreImpl(
                 isFlushing.set(false)
             }
         }
+    }
+
+    private fun <T:Any> Event<T>.isUnhandledException(): Boolean {
+        return this.type == EventTypes.UNHANDLED_EXCEPTION && this.data is ExceptionEvent && !this.data.handled
     }
 }

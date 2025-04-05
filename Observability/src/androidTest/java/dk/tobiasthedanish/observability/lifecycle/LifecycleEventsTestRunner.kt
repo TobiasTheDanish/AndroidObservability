@@ -58,17 +58,6 @@ internal class LifecycleEventsTestRunner {
     private val application = instrumentation.context.applicationContext as Application
     private val device = UiDevice.getInstance(instrumentation)
     private val database = DatabaseImpl(application)
-    private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
-    private val idFactory: IdFactory = IdFactoryImpl()
-    private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
-        dataStore = application.dataStore,
-        idFactory = idFactory
-    )
-    private val sessionStore = SessionStoreImpl(
-        localPreferencesDataStore,
-        CoroutineScope(Dispatchers.IO)
-    )
-    private val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private lateinit var traceStore: TraceStore
 
     fun wakeup() {
@@ -76,18 +65,27 @@ internal class LifecycleEventsTestRunner {
     }
 
     fun initObservability() {
-        val timeProvider: TimeProvider = AndroidTimeProvider()
-        val sessionManager = SessionManagerImpl(
-            timeProvider = timeProvider,
-            idFactory = idFactory,
-            sessionStore = sessionStore,
-            db = database,
-        )
-        traceStore = TraceStoreImpl(sessionManager, database)
-
         val config = object : ObservabilityConfigInternal {
-            override val timeProvider: TimeProvider = timeProvider
-            override val sessionManager: SessionManager = sessionManager
+            private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
+            private val idFactory: IdFactory = IdFactoryImpl()
+            private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
+                dataStore = application.dataStore,
+                idFactory = idFactory
+            )
+            private val sessionStore = SessionStoreImpl(
+                localPreferencesDataStore,
+                CoroutineScope(Dispatchers.IO)
+            )
+            override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
+
+            override val timeProvider: TimeProvider = AndroidTimeProvider()
+            override val sessionManager: SessionManager = SessionManagerImpl(
+                timeProvider = timeProvider,
+                idFactory = idFactory,
+                sessionStore = sessionStore,
+                db = database,
+            )
+            override val traceStore = TraceStoreImpl(sessionManager, database)
             override val traceCollector: TraceCollector = TraceCollectorImpl(traceStore = traceStore)
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory
@@ -96,7 +94,7 @@ internal class LifecycleEventsTestRunner {
             private val ticker: Ticker = TickerImpl(scheduler)
             private val manifestReader = ManifestReaderImpl(application)
 
-            override val cleanupService: CleanupService = CleanupServiceImpl(database)
+            override val cleanupService: CleanupService = CleanupServiceImpl(database, sessionManager)
             override val configService: ConfigService = ConfigServiceImpl(manifestReader)
             private val httpService = InternalHttpClientImpl(HttpClientFactory.client, env = configService,)
             override val exporter: Exporter = ExporterImpl(ticker, httpService, database, sessionManager, scheduler)
@@ -134,35 +132,6 @@ internal class LifecycleEventsTestRunner {
             Thread.currentThread(),
             Exception("Test exception"),
         )
-    }
-
-    fun didTrackEvent(type: String): Boolean {
-        return trackedEventCount(type) > 0
-    }
-
-    fun trackedEventCount(type: String): Int {
-        try {
-            eventStore.flush()
-            database.readableDatabase.rawQuery(
-                """
-                    SELECT COUNT(${Constants.DB.EventTable.COL_ID}) AS count 
-                    FROM ${Constants.DB.EventTable.NAME} 
-                    WHERE ${Constants.DB.EventTable.COL_TYPE} = ?
-                """.trimIndent(),
-                arrayOf(type)
-            ).use {
-                if (it.moveToFirst()) {
-                    val count = it.getInt(it.getColumnIndex("count"))
-                    return count
-                } else {
-                    Log.e("didTrackEvent", "Cursor was empty")
-                    return -1
-                }
-            }
-        } catch (e: SQLiteException) {
-            Log.e("didTrackEvent", "Database error", e)
-            return -1
-        }
     }
 
     fun pressHome() {

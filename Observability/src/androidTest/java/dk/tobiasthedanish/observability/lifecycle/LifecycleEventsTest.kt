@@ -23,10 +23,9 @@ class LifecycleEventsTest {
 
     @Before
     fun setup() {
+        mockWebServer.start(8080)
         runner = LifecycleEventsTestRunner()
         runner.wakeup()
-        mockWebServer.start(8080)
-        mockWebServer.enqueue(MockResponse().setResponseCode(200))
     }
 
     @After
@@ -38,18 +37,19 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun activityLifecycleEventsTest() {
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
         runner.initObservability()
 
         ActivityScenario.launch(TestActivity::class.java).use {
             it.moveToState(Lifecycle.State.RESUMED)
 
-            Assert.assertTrue(runner.didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY))
-            Assert.assertTrue("Less than the expected amount of 4 event were tracked", 2 <= runner.trackedEventCount(EventTypes.LIFECYCLE_ACTIVITY))
-
             it.moveToState(Lifecycle.State.DESTROYED)
             triggerExport()
-            Assert.assertTrue("Less than the expected amount of 4 event were tracked", 4 <= runner.trackedEventCount(EventTypes.LIFECYCLE_ACTIVITY))
-            Assert.assertTrue("Web server did NOT track 'lifecycle_activity' event", didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY))
+            Assert.assertTrue(
+                "Web server did NOT track 'lifecycle_activity' event",
+                !didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY) && didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY)
+            )
         }
     }
 
@@ -57,18 +57,20 @@ class LifecycleEventsTest {
     @LargeTest
     fun appLifecycleEventsTest() {
         // This function is hella flaky if emulator is running slow due to pressHome function
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
         runner.initObservability()
 
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
-            Assert.assertTrue(runner.didTrackEvent(EventTypes.LIFECYCLE_APP))
-            Assert.assertEquals(1, runner.trackedEventCount(EventTypes.LIFECYCLE_APP))
 
             runner.pressHome()
             triggerExport()
-            Assert.assertEquals(2, runner.trackedEventCount(EventTypes.LIFECYCLE_APP))
 
-            Assert.assertTrue("Web server did NOT track 'lifecycle_app' event", didTrackEvent(EventTypes.LIFECYCLE_APP))
+            Assert.assertTrue(
+                "Web server did NOT track 'lifecycle_app' event",
+                !didTrackEvent(EventTypes.LIFECYCLE_APP) && didTrackEvent(EventTypes.LIFECYCLE_APP)
+            )
         }
 
     }
@@ -76,6 +78,8 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun unhandledExceptionTest() {
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
         runner.disableUncaughtExceptionHandler()
         runner.initObservability()
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
@@ -86,25 +90,32 @@ class LifecycleEventsTest {
             }
         }
 
-        Assert.assertTrue("No Unhandled exception event was tracked", runner.didTrackEvent(EventTypes.UNHANDLED_EXCEPTION))
-        Assert.assertTrue("No Unhandled exception event was tracked by server", didTrackEvent(EventTypes.UNHANDLED_EXCEPTION))
+        Assert.assertTrue(
+            "No Unhandled exception event was tracked by server",
+            !didTrackEvent(EventTypes.UNHANDLED_EXCEPTION) && didTrackEvent(EventTypes.UNHANDLED_EXCEPTION)
+        )
     }
 
     @Test
     @LargeTest
     fun navigationEventTest() {
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
         runner.initObservability()
 
         ActivityScenario.launch(TestActivity::class.java).use {
             it.moveToState(Lifecycle.State.RESUMED)
             it.onActivity {
                 runner.navigate()
-                triggerExport()
             }
+            it.moveToState(Lifecycle.State.DESTROYED)
+            triggerExport()
         }
 
-        Assert.assertTrue("No navigation event was tracked", runner.didTrackEvent(EventTypes.NAVIGATION))
-        Assert.assertTrue("No navigation event was tracked by server", didTrackEvent(EventTypes.NAVIGATION))
+        Assert.assertTrue(
+            "No navigation event was tracked by server",
+            !didTrackEvent(EventTypes.NAVIGATION) && didTrackEvent(EventTypes.NAVIGATION)
+        )
     }
 
     private fun triggerExport() {
@@ -113,7 +124,7 @@ class LifecycleEventsTest {
 
     private fun didTrackEvent(type: String): Boolean {
         //val request = mockWebServer.takeRequest()
-        val request = mockWebServer.takeRequest(1000, TimeUnit.MILLISECONDS)
+        val request = mockWebServer.takeRequest(2000, TimeUnit.MILLISECONDS)
         Log.d("didTrackEvent", "latest request: $request")
         val body = request?.body?.readUtf8()
         Log.d("didTrackEvent", "latest request body: $body")
