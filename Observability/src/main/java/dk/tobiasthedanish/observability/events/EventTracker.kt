@@ -2,6 +2,7 @@ package dk.tobiasthedanish.observability.events
 
 import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.session.SessionManager
+import dk.tobiasthedanish.observability.utils.isUnhandledException
 
 internal interface EventTracker {
     fun <T: Any> track(
@@ -25,6 +26,8 @@ internal class EventTrackerImpl(
         )
         sessionManager.onEventTracked(event)
         eventStore.store(event)
-        exporter
+        if (event.isUnhandledException()) {
+            exporter.export(event.sessionId)
+        }
     }
 }

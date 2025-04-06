@@ -9,6 +9,7 @@ import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.SessionEntity
 import dk.tobiasthedanish.observability.time.TimeProvider
 import dk.tobiasthedanish.observability.utils.IdFactory
+import dk.tobiasthedanish.observability.utils.isUnhandledException
 import kotlinx.coroutines.runBlocking
 
 internal interface SessionManager: AppLifecycleListener {
@@ -108,9 +109,5 @@ internal class SessionManagerImpl(
         sessionStore.setRecent(newSession)
         db.createSession(session = SessionEntity(newSession.id, newSession.createdAt, newSession.crashed))
         return newSession
-    }
-
-    private fun <T:Any> Event<T>.isUnhandledException(): Boolean {
-        return this.type == EventTypes.UNHANDLED_EXCEPTION && this.data is ExceptionEvent && !this.data.handled
     }
 }

@@ -135,62 +135,64 @@ internal class ExporterImpl(
     override fun export(sessionId: String) {
         Log.d(TAG, "Exporting sessionId $sessionId")
         if (isExporting.compareAndSet(false, true)) {
-            try {
-                val data = database.getDataForExport(sessionId)
-                if (data.sessionEntity == null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
-                    Log.i(TAG, "No data to export returning early")
-                    return
-                }
+            scheduler.start {
+                try {
+                    val data = database.getDataForExport(sessionId)
+                    if (data.sessionEntity == null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
+                        Log.i(TAG, "No data to export returning early")
+                        return@start
+                    }
 
-                Log.d(TAG, "Data to export: $data")
+                    Log.d(TAG, "Data to export: $data")
 
-                if (data.sessionEntity != null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
-                    exportSession(
-                        SessionDTO(
-                            id = data.sessionEntity.id,
-                            installationId = "",
-                            createdAt = data.sessionEntity.createdAt,
-                            crashed = data.sessionEntity.crashed,
-                        )
-                    )
-                } else {
-                    exportCollection(
-                        ExportDTO(
-                            session = if (data.sessionEntity != null) SessionDTO(
+                    if (data.sessionEntity != null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
+                        exportSession(
+                            SessionDTO(
                                 id = data.sessionEntity.id,
                                 installationId = "",
                                 createdAt = data.sessionEntity.createdAt,
                                 crashed = data.sessionEntity.crashed,
-                            ) else null,
-                            events = data.eventEntities.map {
-                                EventDTO(
-                                    id = it.id,
-                                    sessionId = it.sessionId,
-                                    serializedData = it.serializedData,
-                                    type = it.type,
-                                    createdAt = it.createdAt
-                                )
-                            },
-                            traces = data.traceEntities.map {
-                                TraceDTO(
-                                    traceId = it.traceId,
-                                    groupId = it.groupId,
-                                    sessionId = it.sessionId,
-                                    parentId = it.parentId,
-                                    name = it.name,
-                                    status = it.status,
-                                    errorMessage = it.errorMessage,
-                                    startTime = it.startTime,
-                                    endTime = it.endTime,
-                                    hasEnded = it.hasEnded,
-                                )
-                            }
+                            )
                         )
-                    )
+                    } else {
+                        exportCollection(
+                            ExportDTO(
+                                session = if (data.sessionEntity != null) SessionDTO(
+                                    id = data.sessionEntity.id,
+                                    installationId = "",
+                                    createdAt = data.sessionEntity.createdAt,
+                                    crashed = data.sessionEntity.crashed,
+                                ) else null,
+                                events = data.eventEntities.map {
+                                    EventDTO(
+                                        id = it.id,
+                                        sessionId = it.sessionId,
+                                        serializedData = it.serializedData,
+                                        type = it.type,
+                                        createdAt = it.createdAt
+                                    )
+                                },
+                                traces = data.traceEntities.map {
+                                    TraceDTO(
+                                        traceId = it.traceId,
+                                        groupId = it.groupId,
+                                        sessionId = it.sessionId,
+                                        parentId = it.parentId,
+                                        name = it.name,
+                                        status = it.status,
+                                        errorMessage = it.errorMessage,
+                                        startTime = it.startTime,
+                                        endTime = it.endTime,
+                                        hasEnded = it.hasEnded,
+                                    )
+                                }
+                            )
+                        )
+                    }
+                } finally {
+                    Log.i(TAG, "Finished exporting sessionId: $sessionId")
+                    isExporting.set(false)
                 }
-            } finally {
-                Log.i(TAG, "Finished exporting sessionId: $sessionId")
-                isExporting.set(false)
             }
         } else {
             Log.i(TAG, "Export already running")

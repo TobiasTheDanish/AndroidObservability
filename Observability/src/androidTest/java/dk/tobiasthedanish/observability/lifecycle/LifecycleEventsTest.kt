@@ -12,20 +12,31 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class LifecycleEventsTest {
-    private lateinit var runner: LifecycleEventsTestRunner
     private val mockWebServer: MockWebServer = MockWebServer()
+
+    companion object {
+        private val runner: LifecycleEventsTestRunner = LifecycleEventsTestRunner()
+        @JvmStatic
+        @BeforeClass
+        fun before() {
+            runner.disableUncaughtExceptionHandler()
+            runner.initObservability()
+        }
+    }
+
 
     @Before
     fun setup() {
         mockWebServer.start(8080)
-        runner = LifecycleEventsTestRunner()
-        runner.wakeup()
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
+
     }
 
     @After
@@ -37,10 +48,6 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun activityLifecycleEventsTest() {
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        runner.initObservability()
-
         ActivityScenario.launch(TestActivity::class.java).use {
             it.moveToState(Lifecycle.State.RESUMED)
 
@@ -48,7 +55,7 @@ class LifecycleEventsTest {
             triggerExport()
             Assert.assertTrue(
                 "Web server did NOT track 'lifecycle_activity' event",
-                !didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY) && didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY)
+                didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY)
             )
         }
     }
@@ -57,10 +64,6 @@ class LifecycleEventsTest {
     @LargeTest
     fun appLifecycleEventsTest() {
         // This function is hella flaky if emulator is running slow due to pressHome function
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        runner.initObservability()
-
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
 
@@ -69,7 +72,7 @@ class LifecycleEventsTest {
 
             Assert.assertTrue(
                 "Web server did NOT track 'lifecycle_app' event",
-                !didTrackEvent(EventTypes.LIFECYCLE_APP) && didTrackEvent(EventTypes.LIFECYCLE_APP)
+                didTrackEvent(EventTypes.LIFECYCLE_APP)
             )
         }
 
@@ -78,31 +81,23 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun unhandledExceptionTest() {
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        runner.disableUncaughtExceptionHandler()
-        runner.initObservability()
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
             scenario.onActivity {
                 runner.crashApp()
-                triggerExport()
+                //triggerExport()
             }
         }
 
         Assert.assertTrue(
             "No Unhandled exception event was tracked by server",
-            !didTrackEvent(EventTypes.UNHANDLED_EXCEPTION) && didTrackEvent(EventTypes.UNHANDLED_EXCEPTION)
+            didTrackEvent(EventTypes.UNHANDLED_EXCEPTION)
         )
     }
 
     @Test
     @LargeTest
     fun navigationEventTest() {
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        mockWebServer.enqueue(MockResponse().setResponseCode(201))
-        runner.initObservability()
-
         ActivityScenario.launch(TestActivity::class.java).use {
             it.moveToState(Lifecycle.State.RESUMED)
             it.onActivity {
@@ -114,7 +109,7 @@ class LifecycleEventsTest {
 
         Assert.assertTrue(
             "No navigation event was tracked by server",
-            !didTrackEvent(EventTypes.NAVIGATION) && didTrackEvent(EventTypes.NAVIGATION)
+            didTrackEvent(EventTypes.NAVIGATION)
         )
     }
 

@@ -8,6 +8,7 @@ import dk.tobiasthedanish.observability.navigation.NavigationEvent
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.EventEntity
 import dk.tobiasthedanish.observability.utils.IdFactory
+import dk.tobiasthedanish.observability.utils.isUnhandledException
 import kotlinx.serialization.json.Json
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -78,9 +79,5 @@ internal class EventStoreImpl(
                 isFlushing.set(false)
             }
         }
-    }
-
-    private fun <T:Any> Event<T>.isUnhandledException(): Boolean {
-        return this.type == EventTypes.UNHANDLED_EXCEPTION && this.data is ExceptionEvent && !this.data.handled
     }
 }

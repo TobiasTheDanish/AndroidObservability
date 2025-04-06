@@ -58,7 +58,6 @@ internal class LifecycleEventsTestRunner {
     private val application = instrumentation.context.applicationContext as Application
     private val device = UiDevice.getInstance(instrumentation)
     private val database = DatabaseImpl(application)
-    private lateinit var traceStore: TraceStore
 
     fun wakeup() {
         device.wakeUp()
@@ -122,8 +121,9 @@ internal class LifecycleEventsTestRunner {
     }
 
     fun disableUncaughtExceptionHandler() {
-        Thread.setDefaultUncaughtExceptionHandler { _, _ ->
+        Thread.setDefaultUncaughtExceptionHandler { thread, cause ->
             // Disable default exception handler to prevent crash dialog
+            Log.d("LifecycleEventsTestRunner", "Thread ${thread.name} threw unhandled exception: ${cause.javaClass.name}", cause)
         }
     }
 

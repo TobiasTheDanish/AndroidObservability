@@ -60,11 +60,11 @@ object Observability {
 
     @VisibleForTesting
     internal fun initInstrumentationTest(configInternal: ObservabilityConfigInternal) {
-        if (isInitialized.compareAndSet(false, true)) {
-            observability = ObservabilityInternal(configInternal)
-            observability.init()
-            this.start()
-        }
+        this.stop()
+        isInitialized.set(true)
+        observability = ObservabilityInternal(configInternal)
+        observability.init()
+        this.start()
     }
 
     @TestOnly

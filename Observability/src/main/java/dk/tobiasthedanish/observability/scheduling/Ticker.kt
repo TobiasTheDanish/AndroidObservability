@@ -25,6 +25,7 @@ internal class TickerImpl(
             future = scheduler.scheduleAtRate(
                 runnable = block,
                 intervalMillis,
+                intervalMillis,
             )
         } catch (e: RejectedExecutionException) {
             Log.e(TAG, "Failed to start Ticker", e)
