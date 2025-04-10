@@ -15,8 +15,6 @@ internal interface InternalHttpClient {
     suspend fun exportCollection(collection: ExportDTO): HttpResponse
     suspend fun exportSession(session: SessionDTO): HttpResponse
     suspend fun markSessionCrashed(sessionId: String): HttpResponse
-    suspend fun exportEvent(event: EventDTO): HttpResponse
-    suspend fun exportTrace(trace: TraceDTO): HttpResponse
 }
 
 private const val TAG = "InternalHttpClientImpl"
@@ -42,7 +40,7 @@ internal class InternalHttpClientImpl(
             return when (val status = res.status.value) {
                 in (500..599) -> HttpResponse.Error.ServerError(status, body)
                 in (400..499) -> HttpResponse.Error.ClientError(status, body)
-                201 -> HttpResponse.Success(body)
+                201, 202 -> HttpResponse.Success(body)
                 else -> HttpResponse.Error.UnknownError()
             }
         } catch (e: Exception) {
@@ -94,56 +92,7 @@ internal class InternalHttpClientImpl(
                 else -> HttpResponse.Error.UnknownError()
             }
         } catch (e: Exception) {
-            return HttpResponse.Error.UnknownError(e)
-        }
-    }
-
-    override suspend fun exportEvent(event: EventDTO): HttpResponse {
-        try {
-            val res = client.post("${env.baseUrl}/api/v1/events") {
-                headers {
-                    bearerAuth(env.apiKey)
-                }
-                contentType(ContentType.Application.Json)
-                setBody(event)
-            }
-
-            val body = res.bodyAsText()
-
-            Log.d(TAG, "exportSession response body: $body")
-            return when (val status = res.status.value) {
-                in (500..599) -> HttpResponse.Error.ServerError(status, body)
-                in (400..499) -> HttpResponse.Error.ClientError(status, body)
-                201 -> HttpResponse.Success(body)
-                else -> HttpResponse.Error.UnknownError()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception thrown when exporting sessions: ${e.message}", e)
-            return HttpResponse.Error.UnknownError(e)
-        }
-    }
-
-    override suspend fun exportTrace(trace: TraceDTO): HttpResponse {
-        try {
-            val res = client.post("${env.baseUrl}/api/v1/traces") {
-                headers {
-                    bearerAuth(env.apiKey)
-                }
-                contentType(ContentType.Application.Json)
-                setBody(trace)
-            }
-
-            val body = res.bodyAsText()
-
-            Log.d(TAG, "exportSession response body: $body")
-            return when (val status = res.status.value) {
-                in (500..599) -> HttpResponse.Error.ServerError(status, body)
-                in (400..499) -> HttpResponse.Error.ClientError(status, body)
-                201 -> HttpResponse.Success(body)
-                else -> HttpResponse.Error.UnknownError()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception thrown when exporting sessions: ${e.message}", e)
+            Log.e(TAG, "Exception thrown when marking session as crashed: ${e.message}", e)
             return HttpResponse.Error.UnknownError(e)
         }
     }
