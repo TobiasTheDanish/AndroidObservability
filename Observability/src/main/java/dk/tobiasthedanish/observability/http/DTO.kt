@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.http
 
+import android.os.Build
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -38,4 +39,12 @@ internal data class TraceDTO(
     val startTime: Long,
     val endTime: Long,
     val hasEnded: Boolean,
+)
+
+@Serializable
+internal data class InstallationDTO(
+    val id: String,
+    val sdkVersion: Int = Build.VERSION.SDK_INT,
+    val model: String = Build.MODEL,
+    val brand: String = Build.BRAND,
 )

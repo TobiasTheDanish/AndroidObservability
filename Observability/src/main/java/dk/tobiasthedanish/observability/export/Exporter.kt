@@ -12,8 +12,6 @@ import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.Ticker
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.storage.Database
-import java.util.concurrent.CancellationException
-import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 

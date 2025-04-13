@@ -21,12 +21,12 @@ internal interface LocalPreferencesDataStore {
     suspend fun updateLastEventTime(t: Long)
     suspend fun setSessionCrashed()
 
-    suspend fun getInstallationId(): String
+    suspend fun getInstallationId(): String?
+    suspend fun setInstallationId(id: String)
 }
 
 internal class LocalPreferencesDataStoreImpl(
     private val dataStore: DataStore<Preferences>,
-    private val idFactory: IdFactory,
 ): LocalPreferencesDataStore {
     private val installationIdKey = stringPreferencesKey("installationId")
     private val sessionIdKey = stringPreferencesKey("sessionId")
@@ -71,20 +71,17 @@ internal class LocalPreferencesDataStoreImpl(
         }
     }
 
-    override suspend fun getInstallationId(): String {
+    override suspend fun getInstallationId(): String? {
         val id = dataStore.data.map { data ->
             data[installationIdKey]
         }.first()
 
-        if (id != null) {
-            return id
-        }
+        return id
+    }
 
-        val newId = idFactory.uuid()
+    override suspend fun setInstallationId(id: String) {
         dataStore.edit { data ->
-            data[installationIdKey] = newId
+            data[installationIdKey] = id
         }
-
-        return newId
     }
 }

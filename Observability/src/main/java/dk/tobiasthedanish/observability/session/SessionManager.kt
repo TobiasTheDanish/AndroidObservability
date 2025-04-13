@@ -2,8 +2,6 @@ package dk.tobiasthedanish.observability.session
 
 import android.util.Log
 import dk.tobiasthedanish.observability.events.Event
-import dk.tobiasthedanish.observability.events.EventTypes
-import dk.tobiasthedanish.observability.exception.ExceptionEvent
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.SessionEntity

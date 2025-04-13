@@ -15,6 +15,7 @@ internal interface InternalHttpClient {
     suspend fun exportCollection(collection: ExportDTO): HttpResponse
     suspend fun exportSession(session: SessionDTO): HttpResponse
     suspend fun markSessionCrashed(sessionId: String): HttpResponse
+    suspend fun exportInstallation(installationDTO: InstallationDTO): HttpResponse
 }
 
 private const val TAG = "InternalHttpClientImpl"
@@ -93,6 +94,30 @@ internal class InternalHttpClientImpl(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception thrown when marking session as crashed: ${e.message}", e)
+            return HttpResponse.Error.UnknownError(e)
+        }
+    }
+
+    override suspend fun exportInstallation(installationDTO: InstallationDTO): HttpResponse {
+        try {
+            val res = client.post("${env.baseUrl}/api/v1/installations") {
+                headers {
+                    bearerAuth(env.apiKey)
+                }
+                contentType(ContentType.Application.Json)
+                setBody(installationDTO)
+            }
+
+            val body = res.bodyAsText()
+
+            return when (val status = res.status.value) {
+                in (500..599) -> HttpResponse.Error.ServerError(status, body)
+                in (400..499) -> HttpResponse.Error.ClientError(status, body)
+                201 -> HttpResponse.Success(body)
+                else -> HttpResponse.Error.UnknownError()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception thrown when exporting installation: ${e.message}", e)
             return HttpResponse.Error.UnknownError(e)
         }
     }

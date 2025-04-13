@@ -13,6 +13,8 @@ import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.export.ExporterImpl
 import dk.tobiasthedanish.observability.http.HttpClientFactory
 import dk.tobiasthedanish.observability.http.InternalHttpClientImpl
+import dk.tobiasthedanish.observability.installation.InstallationManager
+import dk.tobiasthedanish.observability.installation.InstallationManagerImpl
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
@@ -54,6 +56,7 @@ import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.Executors
 
 internal interface ObservabilityConfigInternal {
+    val installationManager: InstallationManager
     val sessionManager: SessionManager
     val traceFactory: TraceFactory
     val timeProvider: TimeProvider
@@ -79,7 +82,6 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     private val ticker: Ticker = TickerImpl(scheduler)
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
-        idFactory = idFactory
     )
     private val sessionStore: SessionStore = SessionStoreImpl(
         dataStore = localPreferencesDataStore,
@@ -95,15 +97,22 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         sessionStore = sessionStore,
         db = database,
     )
+    private val httpService = InternalHttpClientImpl(
+        client = HttpClientFactory.client,
+        env = configService,
+    )
     override val exporter: Exporter = ExporterImpl(
         ticker = ticker,
-        httpService = InternalHttpClientImpl(
-            client = HttpClientFactory.client,
-            env = configService,
-        ),
+        httpService = httpService,
         database = database,
         sessionManager = sessionManager,
         scheduler = scheduler,
+    )
+    override val installationManager: InstallationManager = InstallationManagerImpl(
+        preferencesDataStore = localPreferencesDataStore,
+        idFactory = idFactory,
+        scheduler = scheduler,
+        httpService = httpService,
     )
     override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val eventTracker: EventTracker = EventTrackerImpl(
@@ -151,6 +160,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 }
 
 internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLifecycleListener {
+    private val installationManager by lazy { config.installationManager }
     private val sessionManager by lazy { config.sessionManager }
     private val lifecycleManager by lazy { config.lifecycleManager }
     private val navigationManager by lazy { config.navigationManager }
@@ -171,6 +181,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val startLock = Any()
 
     fun init() {
+        installationManager.init()
         sessionManager.init()
         if (!configService.init()) {
             Log.e("", "Initializing Observability failed! Will not start SDK.")
@@ -209,6 +220,10 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 isStarted = false
             }
         }
+    }
+
+    fun getInstallationId(): String {
+        return installationManager.installationId
     }
 
     fun onNavigation(route: String) {

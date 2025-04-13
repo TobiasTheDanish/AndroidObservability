@@ -36,6 +36,14 @@ object Observability {
     }
 
     @JvmStatic
+    fun getInstallationId(): String {
+        require(isInitialized.get()) {
+            "Observability must be initialized before getting installation id"
+        }
+        return observability.getInstallationId()
+    }
+
+    @JvmStatic
     fun onNavigation(route: String) {
         if (isInitialized.get()) {
             observability.onNavigation(route)
