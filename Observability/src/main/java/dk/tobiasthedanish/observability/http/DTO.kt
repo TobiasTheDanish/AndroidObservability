@@ -44,7 +44,7 @@ internal data class TraceDTO(
 @Serializable
 internal data class InstallationDTO(
     val id: String,
-    val sdkVersion: Int = Build.VERSION.SDK_INT,
-    val model: String = Build.MODEL,
-    val brand: String = Build.BRAND,
+    val sdkVersion: Int,
+    val model: String,
+    val brand: String,
 )

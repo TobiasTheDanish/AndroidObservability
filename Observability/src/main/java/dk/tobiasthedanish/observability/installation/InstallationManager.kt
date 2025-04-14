@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.installation
 
+import android.os.Build
 import android.util.Log
 import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InstallationDTO
@@ -42,7 +43,12 @@ internal class InstallationManagerImpl(
 
         scheduler.start {
             preferencesDataStore.setInstallationId(newId)
-            val response = httpService.exportInstallation(InstallationDTO(newId))
+            val response = httpService.exportInstallation(InstallationDTO(
+                id = newId,
+                sdkVersion = Build.VERSION.SDK_INT,
+                model = Build.MODEL,
+                brand = Build.BRAND,
+            ))
             when (response) {
                 is HttpResponse.Success -> Log.i(TAG, "Installation exported successfully")
                 is HttpResponse.Error -> Log.e(TAG, "Failed to export installation id")

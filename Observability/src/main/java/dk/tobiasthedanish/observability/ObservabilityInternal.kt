@@ -101,18 +101,19 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         client = HttpClientFactory.client,
         env = configService,
     )
-    override val exporter: Exporter = ExporterImpl(
-        ticker = ticker,
-        httpService = httpService,
-        database = database,
-        sessionManager = sessionManager,
-        scheduler = scheduler,
-    )
     override val installationManager: InstallationManager = InstallationManagerImpl(
         preferencesDataStore = localPreferencesDataStore,
         idFactory = idFactory,
         scheduler = scheduler,
         httpService = httpService,
+    )
+    override val exporter: Exporter = ExporterImpl(
+        ticker = ticker,
+        httpService = httpService,
+        database = database,
+        sessionManager = sessionManager,
+        installationManager = installationManager,
+        scheduler = scheduler,
     )
     override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     private val eventTracker: EventTracker = EventTrackerImpl(

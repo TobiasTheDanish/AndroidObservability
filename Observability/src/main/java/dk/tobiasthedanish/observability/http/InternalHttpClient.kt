@@ -100,6 +100,7 @@ internal class InternalHttpClientImpl(
 
     override suspend fun exportInstallation(installationDTO: InstallationDTO): HttpResponse {
         try {
+            Log.d(TAG, "Installation to export: $installationDTO")
             val res = client.post("${env.baseUrl}/api/v1/installations") {
                 headers {
                     bearerAuth(env.apiKey)
@@ -110,6 +111,7 @@ internal class InternalHttpClientImpl(
 
             val body = res.bodyAsText()
 
+            Log.d(TAG, "exportInstallation response body: $body")
             return when (val status = res.status.value) {
                 in (500..599) -> HttpResponse.Error.ServerError(status, body)
                 in (400..499) -> HttpResponse.Error.ClientError(status, body)

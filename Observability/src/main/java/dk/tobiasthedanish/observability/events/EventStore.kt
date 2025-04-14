@@ -30,6 +30,7 @@ internal class EventStoreImpl(
     private var isFlushing = AtomicBoolean(false)
 
     override fun <T: Any> store(event: Event<T>) {
+        Log.d(TAG, "Storing new event: $event")
         val serializedData: String = when (event.type) {
             EventTypes.UNHANDLED_EXCEPTION ->
                 Json.encodeToString(ExceptionEvent.serializer(), event.data as ExceptionEvent)
@@ -61,6 +62,7 @@ internal class EventStoreImpl(
     }
 
     override fun flush() {
+        Log.d(TAG, "Flush triggered")
         if (isFlushing.compareAndSet(false, true)) {
             try {
                 val eventList = mutableListOf<EventEntity>()

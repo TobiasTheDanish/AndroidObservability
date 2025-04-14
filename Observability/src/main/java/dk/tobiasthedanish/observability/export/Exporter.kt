@@ -8,6 +8,7 @@ import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InternalHttpClient
 import dk.tobiasthedanish.observability.http.SessionDTO
 import dk.tobiasthedanish.observability.http.TraceDTO
+import dk.tobiasthedanish.observability.installation.InstallationManager
 import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.Ticker
 import dk.tobiasthedanish.observability.session.SessionManager
@@ -29,6 +30,7 @@ internal class ExporterImpl(
     private val httpService: InternalHttpClient,
     private val database: Database,
     private val sessionManager: SessionManager,
+    private val installationManager: InstallationManager,
     private val scheduler: Scheduler,
 ) : Exporter {
     private var isRegistered = AtomicBoolean(false)
@@ -147,7 +149,7 @@ internal class ExporterImpl(
                         exportSession(
                             SessionDTO(
                                 id = data.sessionEntity.id,
-                                installationId = "",
+                                installationId = installationManager.installationId,
                                 createdAt = data.sessionEntity.createdAt,
                                 crashed = data.sessionEntity.crashed,
                             )
@@ -157,7 +159,7 @@ internal class ExporterImpl(
                             ExportDTO(
                                 session = if (data.sessionEntity != null) SessionDTO(
                                     id = data.sessionEntity.id,
-                                    installationId = "",
+                                    installationId = installationManager.installationId,
                                     createdAt = data.sessionEntity.createdAt,
                                     crashed = data.sessionEntity.crashed,
                                 ) else null,
