@@ -55,6 +55,11 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
 
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.junit.ktx)
+    testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.mockito.kotlin)
 
     androidTestImplementation(libs.androidx.activity.compose)
     androidTestImplementation(libs.androidx.navigation.compose)
