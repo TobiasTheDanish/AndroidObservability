@@ -85,6 +85,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     )
     private val sessionStore: SessionStore = SessionStoreImpl(
         dataStore = localPreferencesDataStore,
+        db = database,
         externalScope = CoroutineScope(Dispatchers.IO)
     )
 
@@ -246,6 +247,11 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         eventStore.flush()
         traceStore.flush()
         exporter.export(sessionManager.getSessionId())
+    }
+
+    @TestOnly
+    internal fun getSessionId(): String {
+        return sessionManager.getSessionId()
     }
 
     override fun onAppForeground() {

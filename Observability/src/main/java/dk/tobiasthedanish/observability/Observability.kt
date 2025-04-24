@@ -76,6 +76,11 @@ object Observability {
     }
 
     @TestOnly
+    internal fun getSessionId(): String {
+        return observability.getSessionId()
+    }
+
+    @TestOnly
     internal fun triggerExport() {
         observability.triggerExport()
     }

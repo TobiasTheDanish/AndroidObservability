@@ -116,17 +116,35 @@ internal class DatabaseTestRunner {
     }
 
     fun createEvent(type: String, data: String, sessionId: String? = null): EventEntity {
+        return createEvent(TestEvent(type, data, sessionId))
+    }
+
+    private fun createEvent(event: TestEvent): EventEntity {
         val entity = EventEntity(
             id = idFactory.uuid(),
             createdAt = timeProvider.now(),
-            sessionId = sessionId ?: this.sessionId,
-            serializedData = data,
-            type = type
+            sessionId = event.sessionId ?: this.sessionId,
+            serializedData = event.data,
+            type = event.type
         )
 
         database.createEvent(entity)
 
         return entity
+    }
+
+    fun insertEvents(events: List<TestEvent>): Pair<Int, List<EventEntity>> {
+        val entities = events.map { event -> EventEntity(
+            id = idFactory.uuid(),
+            createdAt = timeProvider.now(),
+            sessionId = event.sessionId ?: this.sessionId,
+            serializedData = event.data,
+            type = event.type,
+        ) }
+
+        val failed = database.insertEvents(entities)
+
+        return failed to entities
     }
 
     fun createTrace(trace: InternalTrace, sessionId: String? = null): TraceEntity {

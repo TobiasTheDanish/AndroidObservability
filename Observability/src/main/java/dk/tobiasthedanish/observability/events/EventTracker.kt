@@ -27,6 +27,7 @@ internal class EventTrackerImpl(
         sessionManager.onEventTracked(event)
         eventStore.store(event)
         if (event.isUnhandledException()) {
+            exporter.exportSessionCrash(event.sessionId)
             exporter.export(event.sessionId)
         }
     }

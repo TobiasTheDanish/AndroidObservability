@@ -20,6 +20,7 @@ internal interface Exporter : Collector {
     fun resume()
     fun pause()
     fun export(sessionId: String)
+    fun exportSessionCrash(sessionId: String)
 }
 
 private const val DEFAULT_TIME_BETWEEN_EXPORTS = 30_000L
@@ -130,6 +131,30 @@ internal class ExporterImpl(
         }
 
         future?.get()
+    }
+
+    override fun exportSessionCrash(sessionId: String) {
+        try {
+            scheduler.start {
+                val response = httpService.markSessionCrashed(sessionId)
+
+                when (response) {
+                    is HttpResponse.Success -> {
+                        database.setSessionExported(sessionId)
+                    }
+
+                    is HttpResponse.Error -> {
+                        Log.e(TAG, "Failed to export crash for session with id: $sessionId")
+                    }
+                }
+            }
+        } catch (e: RejectedExecutionException) {
+            Log.e(
+                TAG,
+                "Execution of session crash export was rejected, for session with id: $sessionId",
+                e
+            )
+        }
     }
 
     override fun export(sessionId: String) {

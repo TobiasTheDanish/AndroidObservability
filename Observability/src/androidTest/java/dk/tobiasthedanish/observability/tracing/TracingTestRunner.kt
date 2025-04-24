@@ -2,8 +2,6 @@ package dk.tobiasthedanish.observability.tracing
 
 import android.app.Application
 import android.app.Instrumentation
-import android.database.sqlite.SQLiteException
-import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -19,6 +17,8 @@ import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.export.ExporterImpl
 import dk.tobiasthedanish.observability.http.HttpClientFactory
 import dk.tobiasthedanish.observability.http.InternalHttpClientImpl
+import dk.tobiasthedanish.observability.installation.InstallationManager
+import dk.tobiasthedanish.observability.installation.InstallationManagerImpl
 import dk.tobiasthedanish.observability.lifecycle.ActivityLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleCollector
 import dk.tobiasthedanish.observability.lifecycle.LifecycleManager
@@ -33,7 +33,6 @@ import dk.tobiasthedanish.observability.scheduling.TickerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
 import dk.tobiasthedanish.observability.session.SessionStoreImpl
-import dk.tobiasthedanish.observability.storage.Constants
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
 import dk.tobiasthedanish.observability.time.TimeProvider
@@ -66,10 +65,10 @@ class TracingTestRunner {
             private val idFactory: IdFactory = IdFactoryImpl()
             private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
                 dataStore = application.dataStore,
-                idFactory = idFactory
             )
             private val sessionStore = SessionStoreImpl(
                 localPreferencesDataStore,
+                database,
                 CoroutineScope(Dispatchers.IO)
             )
             override val eventStore: EventStore =
@@ -97,8 +96,14 @@ class TracingTestRunner {
             override val configService: ConfigService = ConfigServiceImpl(manifestReader)
             private val httpService =
                 InternalHttpClientImpl(HttpClientFactory.client, configService)
+            override val installationManager: InstallationManager = InstallationManagerImpl(
+                preferencesDataStore = localPreferencesDataStore,
+                idFactory = idFactory,
+                scheduler = scheduler,
+                httpService = httpService
+            )
             override val exporter: Exporter =
-                ExporterImpl(ticker, httpService, database, sessionManager, scheduler)
+                ExporterImpl(ticker, httpService, database, sessionManager, installationManager, scheduler)
             private val eventTracker: EventTracker =
                 EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)

@@ -15,6 +15,7 @@ import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.ArrayList
 import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
@@ -36,7 +37,6 @@ class LifecycleEventsTest {
     fun setup() {
         mockWebServer.start(8080)
         mockWebServer.enqueue(MockResponse().setResponseCode(201))
-
     }
 
     @After
@@ -53,9 +53,15 @@ class LifecycleEventsTest {
 
             it.moveToState(Lifecycle.State.DESTROYED)
             triggerExport()
+
+            val bodies = aggregateRequests(3)
             Assert.assertTrue(
                 "Web server did NOT track 'lifecycle_activity' event",
-                didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY)
+                bodies.didTrackEvent(EventTypes.LIFECYCLE_ACTIVITY)
+            )
+            Assert.assertTrue(
+                "Web server did NOT track collection request",
+                bodies.didTrackRequest("POST", "/api/v1/collection")
             )
         }
     }
@@ -63,16 +69,20 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun appLifecycleEventsTest() {
-        // This function is hella flaky if emulator is running slow due to pressHome function
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
 
             runner.pressHome()
             triggerExport()
 
+            val bodies = aggregateRequests()
             Assert.assertTrue(
                 "Web server did NOT track 'lifecycle_app' event",
-                didTrackEvent(EventTypes.LIFECYCLE_APP)
+                bodies.didTrackEvent(EventTypes.LIFECYCLE_APP)
+            )
+            Assert.assertTrue(
+                "Web server did NOT track collection request",
+                bodies.didTrackRequest("POST", "/api/v1/collection")
             )
         }
 
@@ -81,6 +91,8 @@ class LifecycleEventsTest {
     @Test
     @LargeTest
     fun unhandledExceptionTest() {
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
+        mockWebServer.enqueue(MockResponse().setResponseCode(201))
         ActivityScenario.launch(TestActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
             scenario.onActivity {
@@ -89,9 +101,14 @@ class LifecycleEventsTest {
             }
         }
 
+        val bodies = aggregateRequests(3)
         Assert.assertTrue(
             "No Unhandled exception event was tracked by server",
-            didTrackEvent(EventTypes.UNHANDLED_EXCEPTION)
+            bodies.didTrackEvent(EventTypes.UNHANDLED_EXCEPTION)
+        )
+        Assert.assertTrue(
+            "No session crash request was tracked by server",
+            bodies.didTrackRequest("post", "/api/v1/sessions/${Observability.getSessionId()}/crash")
         )
     }
 
@@ -107,9 +124,14 @@ class LifecycleEventsTest {
             triggerExport()
         }
 
+        val bodies = aggregateRequests()
         Assert.assertTrue(
             "No navigation event was tracked by server",
-            didTrackEvent(EventTypes.NAVIGATION)
+            bodies.didTrackEvent(EventTypes.NAVIGATION)
+        )
+        Assert.assertTrue(
+            "Web server did NOT track collection request",
+            bodies.didTrackRequest("POST", "/api/v1/collection")
         )
     }
 
@@ -117,16 +139,45 @@ class LifecycleEventsTest {
         Observability.triggerExport()
     }
 
-    private fun didTrackEvent(type: String): Boolean {
-        //val request = mockWebServer.takeRequest()
-        val request = mockWebServer.takeRequest(2000, TimeUnit.MILLISECONDS)
-        Log.d("didTrackEvent", "latest request: $request")
-        val body = request?.body?.readUtf8()
-        Log.d("didTrackEvent", "latest request body: $body")
-        return body != null && body.containsEvent(type)
+    private fun aggregateRequests(maxRequests: Int = 5): List<String> {
+        val requestList = ArrayList<String>(maxRequests)
+
+        var count = 0
+        var request = mockWebServer.takeRequest(2000, TimeUnit.MILLISECONDS)
+        while (count < maxRequests && request != null) {
+            Log.d("aggregateRequests", "request: $request")
+            val body = request.body.readUtf8()
+            Log.d("aggregateRequests", "request body: $body")
+            requestList.add("$request\n$body")
+            request = mockWebServer.takeRequest(2000, TimeUnit.MILLISECONDS)
+            count++
+        }
+
+        return requestList
+    }
+
+    private fun List<String>.didTrackRequest(method: String, path: String): Boolean {
+        val bodies = this
+        val expected = "${method.uppercase()} $path"
+
+        return bodies.any { body ->
+            Log.d("didTrackRequest", "expected: $expected, actual: $body")
+
+            body.containsRequest(expected)
+        }
+    }
+
+    private fun List<String>.didTrackEvent(type: String): Boolean {
+        val bodies = this
+
+        return bodies.any { body -> body.containsEvent(type) }
     }
 
     private fun String.containsEvent(eventType: String): Boolean {
         return contains("\"type\":\"$eventType\"")
+    }
+
+    private fun String.containsRequest(expected: String): Boolean {
+        return contains(expected)
     }
 }

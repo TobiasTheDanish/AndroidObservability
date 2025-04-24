@@ -7,7 +7,6 @@ import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEventType
 import dk.tobiasthedanish.observability.utils.IdFactoryImpl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert
@@ -133,5 +132,28 @@ internal class DatabaseTest {
 
         Assert.assertEquals(fetchedParent?.groupId, fetchedChild1?.groupId)
         Assert.assertEquals(fetchedParent?.groupId, fetchedChild2?.groupId)
+    }
+
+    @Test
+    fun testMultipleEvents() {
+        val (failed, entities) = runner.insertEvents(listOf(
+            TestEvent(EventTypes.LIFECYCLE_APP, "", IdFactoryImpl().uuid()),
+            TestEvent(EventTypes.LIFECYCLE_APP, ""),
+            TestEvent(EventTypes.LIFECYCLE_APP, ""),
+        ))
+
+        Assert.assertEquals(1, failed)
+        entities.forEachIndexed { i, entity ->
+            val fetchedEntity = runner.getEvent(entity.id)
+            if (i == 0) {
+                Assert.assertNull(fetchedEntity)
+            } else {
+                Assert.assertEquals(entity.id, fetchedEntity?.id)
+                Assert.assertEquals(entity.createdAt, fetchedEntity?.createdAt)
+                Assert.assertEquals(entity.sessionId, fetchedEntity?.sessionId)
+                Assert.assertEquals(entity.serializedData, fetchedEntity?.serializedData)
+                Assert.assertEquals(entity.type, fetchedEntity?.type)
+            }
+        }
     }
 }

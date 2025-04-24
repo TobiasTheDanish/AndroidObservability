@@ -30,7 +30,6 @@ internal class EventStoreImpl(
     private var isFlushing = AtomicBoolean(false)
 
     override fun <T: Any> store(event: Event<T>) {
-        Log.d(TAG, "Storing new event: $event")
         val serializedData: String = when (event.type) {
             EventTypes.UNHANDLED_EXCEPTION ->
                 Json.encodeToString(ExceptionEvent.serializer(), event.data as ExceptionEvent)
@@ -54,6 +53,7 @@ internal class EventStoreImpl(
             createdAt = event.timestamp,
             serializedData = serializedData,
         )
+        Log.d(TAG, "Storing new event: ${entity.id} ${entity.type}")
 
         if (event.isUnhandledException() || !queue.offer(entity)) {
             db.createEvent(entity)
@@ -72,8 +72,11 @@ internal class EventStoreImpl(
                     return
                 }
 
-                if(!db.insertEvents(eventList)) {
-                    Log.e(TAG, "Failed to insert ${eventList.size} events")
+                val failed = db.insertEvents(eventList)
+                if(failed > 0) {
+                    Log.e(TAG, "Failed to insert $failed events")
+                    if (failed < eventList.size)
+                        Log.i(TAG, "Successfully inserted ${eventList.size-failed} events")
                 } else {
                     Log.i(TAG, "Successfully inserted ${eventList.size} events")
                 }

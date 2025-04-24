@@ -62,8 +62,12 @@ internal class TraceStoreImpl(
                     return
                 }
 
-                if(!db.insertTraces(traceList)) {
-                    Log.e(TAG, "Failed to insert ${traceList.size} traces")
+                val failed = db.insertTraces(traceList)
+                if(failed > 0) {
+                    Log.e(TAG, "Failed to insert $failed traces")
+                    if (failed < traceList.size) {
+                        Log.i(TAG, "Successfully inserted ${traceList.size-failed} traces")
+                    }
                 } else {
                     Log.i(TAG, "Successfully inserted ${traceList.size} traces")
                 }

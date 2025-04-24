@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.storage
 
+import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
@@ -17,12 +18,20 @@ internal interface Database {
 
     fun createEvent(event: EventEntity)
     fun getEvent(eventId: String): EventEntity?
-    fun insertEvents(events: List<EventEntity>): Boolean
+
+    /**
+     * @return number of FAILED events
+     */
+    fun insertEvents(events: List<EventEntity>): Int
     fun setEventExported(eventId: String)
 
     fun createTrace(trace: TraceEntity)
     fun getTrace(traceId: String): TraceEntity?
-    fun insertTraces(traces: List<TraceEntity>): Boolean
+
+    /**
+     * @return number of FAILED traces
+     */
+    fun insertTraces(traces: List<TraceEntity>): Int
     fun setTraceExported(traceId: String)
 
     fun getDataForExport(sessionId: String): ExportEntity
@@ -34,7 +43,7 @@ private const val TAG = "DatabaseImpl"
 
 internal class DatabaseImpl(
     context: Context,
-): SQLiteOpenHelper(
+) : SQLiteOpenHelper(
     context,
     Constants.DB.NAME,
     null,
@@ -71,6 +80,8 @@ internal class DatabaseImpl(
             val result = writableDatabase.insert(Constants.DB.SessionTable.NAME, null, values)
             if (result == -1L) {
                 Log.e(TAG, "Failed to insert session")
+            } else {
+                Log.d(TAG, "Inserted session ${session.id}")
             }
         } catch (e: SQLiteException) {
             Log.e(TAG, "Failed to insert session", e)
@@ -80,7 +91,7 @@ internal class DatabaseImpl(
     override fun getSession(sessionId: String): SessionEntity? {
         var res: SessionEntity? = null
         readableDatabase.rawQuery(Constants.SQL.GET_SESSION, arrayOf(sessionId)).use {
-            if(it.moveToFirst()) {
+            if (it.moveToFirst()) {
                 res = readSession(it)
             }
         }
@@ -152,18 +163,19 @@ internal class DatabaseImpl(
         var res: EventEntity? = null
 
         readableDatabase.rawQuery(Constants.SQL.GET_EVENT, arrayOf(eventId)).use {
-            if(it.moveToFirst()) {
-res = readEvent(it)
+            if (it.moveToFirst()) {
+                res = readEvent(it)
             }
         }
 
         return res
     }
 
-    override fun insertEvents(events: List<EventEntity>): Boolean {
-        writableDatabase.beginTransaction()
-        try {
-            for (event in events) {
+    @SuppressLint("UseKtx")
+    override fun insertEvents(events: List<EventEntity>): Int {
+        var failedCount = 0
+        for (event in events) {
+            try {
                 val values = ContentValues().apply {
                     put(Constants.DB.EventTable.COL_ID, event.id)
                     put(Constants.DB.EventTable.COL_CREATED_AT, event.createdAt)
@@ -171,19 +183,16 @@ res = readEvent(it)
                     put(Constants.DB.EventTable.COL_SESSION_ID, event.sessionId)
                     put(Constants.DB.EventTable.COL_SERIALIZED_DATA, event.serializedData)
                 }
-                if(writableDatabase.insert(Constants.DB.EventTable.NAME, null, values) == -1L) {
-                    return false
+                if (writableDatabase.insert(Constants.DB.EventTable.NAME, null, values) == -1L) {
+                    failedCount += 1
                 }
+            } catch (e: SQLiteException) {
+                Log.e(TAG, "Error inserting events in db", e)
+                failedCount += 1
             }
-
-            writableDatabase.setTransactionSuccessful()
-            return true
-        } catch (e: SQLiteException) {
-            Log.e(TAG, "Error inserting events in db", e)
-            return false
-        } finally {
-            writableDatabase.endTransaction()
         }
+
+        return failedCount
     }
 
     override fun setEventExported(eventId: String) {
@@ -219,7 +228,7 @@ res = readEvent(it)
                 put(Constants.DB.TraceTable.COL_ERROR_MESSAGE, trace.errorMessage)
                 put(Constants.DB.TraceTable.COL_STARTED_AT, trace.startTime)
                 put(Constants.DB.TraceTable.COL_ENDED_AT, trace.endTime)
-                put(Constants.DB.TraceTable.COL_HAS_ENDED, if(trace.hasEnded) 1 else 0)
+                put(Constants.DB.TraceTable.COL_HAS_ENDED, if (trace.hasEnded) 1 else 0)
             }
             val result = writableDatabase.insert(Constants.DB.TraceTable.NAME, null, values)
             if (result == -1L) {
@@ -234,7 +243,7 @@ res = readEvent(it)
         var res: TraceEntity? = null
 
         readableDatabase.rawQuery(Constants.SQL.GET_TRACE, arrayOf(traceId)).use {
-            if(it.moveToFirst()) {
+            if (it.moveToFirst()) {
                 res = readTrace(it)
             }
         }
@@ -242,10 +251,11 @@ res = readEvent(it)
         return res
     }
 
-    override fun insertTraces(traces: List<TraceEntity>): Boolean {
-        writableDatabase.beginTransaction()
-        try {
-            for (trace in traces) {
+    @SuppressLint("UseKtx")
+    override fun insertTraces(traces: List<TraceEntity>): Int {
+        var failedCount = 0
+        for (trace in traces) {
+            try {
                 val values = ContentValues().apply {
                     put(Constants.DB.TraceTable.COL_TRACE_ID, trace.traceId)
                     put(Constants.DB.TraceTable.COL_GROUP_ID, trace.groupId)
@@ -261,18 +271,15 @@ res = readEvent(it)
 
                 if (writableDatabase.insert(Constants.DB.TraceTable.NAME, null, values) == -1L) {
                     Log.e(TAG, "Failed to insert trace(${trace.name})")
-                    return false
+                    failedCount += 1
                 }
+            } catch (e: SQLiteException) {
+                Log.e(TAG, "Failed to insert traces", e)
+                failedCount += 1
             }
-
-            writableDatabase.setTransactionSuccessful()
-            return true
-        } catch (e: SQLiteException) {
-            Log.e(TAG, "Failed to insert trace", e)
-            return false
-        } finally {
-            writableDatabase.endTransaction()
         }
+
+        return failedCount
     }
 
     override fun setTraceExported(traceId: String) {
@@ -298,13 +305,14 @@ res = readEvent(it)
 
     override fun getDataForExport(sessionId: String): ExportEntity {
         val session: SessionEntity? = try {
-            readableDatabase.rawQuery(Constants.SQL.GET_SESSION_FOR_EXPORT, arrayOf(sessionId)).use {
-                if (it.moveToFirst()) {
-                    readSession(it)
-                } else {
-                    null
+            readableDatabase.rawQuery(Constants.SQL.GET_SESSION_FOR_EXPORT, arrayOf(sessionId))
+                .use {
+                    if (it.moveToFirst()) {
+                        readSession(it)
+                    } else {
+                        null
+                    }
                 }
-            }
         } catch (e: SQLiteException) {
             Log.d(TAG, "Failed to get session with id $sessionId for export")
             null

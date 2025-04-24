@@ -2,7 +2,6 @@ package dk.tobiasthedanish.observability.lifecycle
 
 import android.app.Application
 import android.app.Instrumentation
-import android.database.sqlite.SQLiteException
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -21,6 +20,7 @@ import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.export.ExporterImpl
 import dk.tobiasthedanish.observability.http.HttpClientFactory
 import dk.tobiasthedanish.observability.http.InternalHttpClientImpl
+import dk.tobiasthedanish.observability.installation.InstallationManagerImpl
 import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager
@@ -40,7 +40,6 @@ import dk.tobiasthedanish.observability.tracing.TraceCollector
 import dk.tobiasthedanish.observability.tracing.TraceCollectorImpl
 import dk.tobiasthedanish.observability.tracing.TraceFactory
 import dk.tobiasthedanish.observability.tracing.TraceFactoryImpl
-import dk.tobiasthedanish.observability.tracing.TraceStore
 import dk.tobiasthedanish.observability.tracing.TraceStoreImpl
 import dk.tobiasthedanish.observability.utils.ConfigService
 import dk.tobiasthedanish.observability.utils.ConfigServiceImpl
@@ -69,10 +68,10 @@ internal class LifecycleEventsTestRunner {
             private val idFactory: IdFactory = IdFactoryImpl()
             private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
                 dataStore = application.dataStore,
-                idFactory = idFactory
             )
             private val sessionStore = SessionStoreImpl(
                 localPreferencesDataStore,
+                database,
                 CoroutineScope(Dispatchers.IO)
             )
             override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
@@ -93,10 +92,23 @@ internal class LifecycleEventsTestRunner {
             private val ticker: Ticker = TickerImpl(scheduler)
             private val manifestReader = ManifestReaderImpl(application)
 
-            override val cleanupService: CleanupService = CleanupServiceImpl(database, sessionManager)
             override val configService: ConfigService = ConfigServiceImpl(manifestReader)
             private val httpService = InternalHttpClientImpl(HttpClientFactory.client, env = configService,)
-            override val exporter: Exporter = ExporterImpl(ticker, httpService, database, sessionManager, scheduler)
+            override val installationManager = InstallationManagerImpl(
+                preferencesDataStore = localPreferencesDataStore,
+                idFactory = idFactory,
+                scheduler = scheduler,
+                httpService = httpService,
+            )
+            override val cleanupService: CleanupService = CleanupServiceImpl(database, sessionManager)
+            override val exporter: Exporter = ExporterImpl(
+                ticker = ticker,
+                httpService = httpService,
+                database = database,
+                sessionManager = sessionManager,
+                installationManager = installationManager,
+                scheduler = scheduler
+            )
             private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
             override val navigationManager: NavigationManager = NavigationManagerImpl()
@@ -152,6 +164,7 @@ internal class LifecycleEventsTestRunner {
     }
 
     fun teardown() {
+        Observability.triggerExport()
         database.writableDatabase.delete(Constants.DB.EventTable.NAME, null, null)
     }
 }
