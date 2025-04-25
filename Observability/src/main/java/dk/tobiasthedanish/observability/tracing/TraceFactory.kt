@@ -13,7 +13,7 @@ internal class TraceFactoryImpl(
     private val traceCollector: TraceCollector,
     private val idFactory: IdFactory,
 ): TraceFactory {
-    override fun createTrace(name: String): Trace {
+    override fun createTrace(name: String): TraceImpl {
         return TraceImpl(
             name = name,
             groupId = idFactory.uuid(),
@@ -24,7 +24,7 @@ internal class TraceFactoryImpl(
         )
     }
 
-    override fun startTrace(name: String): Trace {
+    override fun startTrace(name: String): TraceImpl {
         val trace = createTrace(name)
         trace.start()
         return trace
