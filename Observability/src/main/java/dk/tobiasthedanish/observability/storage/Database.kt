@@ -18,7 +18,6 @@ internal interface Database {
 
     fun createEvent(event: EventEntity)
     fun getEvent(eventId: String): EventEntity?
-
     /**
      * @return number of FAILED events
      */
@@ -27,12 +26,15 @@ internal interface Database {
 
     fun createTrace(trace: TraceEntity)
     fun getTrace(traceId: String): TraceEntity?
-
     /**
      * @return number of FAILED traces
      */
     fun insertTraces(traces: List<TraceEntity>): Int
     fun setTraceExported(traceId: String)
+
+    fun getMemoryUsage(id: String): MemoryUsageEntity?
+    fun createMemoryUsage(data: MemoryUsageEntity)
+    fun insertMemoryUsages(data: List<MemoryUsageEntity>): Int
 
     fun getDataForExport(sessionId: String): ExportEntity
 
@@ -54,6 +56,7 @@ internal class DatabaseImpl(
             db.execSQL(Constants.SQL.CREATE_SESSION_TABLE)
             db.execSQL(Constants.SQL.CREATE_EVENTS_TABLE)
             db.execSQL(Constants.SQL.CREATE_TRACE_TABLE)
+            db.execSQL(Constants.SQL.CREATE_MEMORY_USAGE_TABLE)
         } catch (e: SQLiteException) {
             Log.e(TAG, "Failed to create database", e)
         }
@@ -303,6 +306,62 @@ internal class DatabaseImpl(
         }
     }
 
+    override fun getMemoryUsage(id: String): MemoryUsageEntity? {
+        var res: MemoryUsageEntity? = null
+
+        Log.d(TAG, "Reading memory usage with id $id")
+        readableDatabase.rawQuery(Constants.SQL.GET_MEMORY_USAGE, arrayOf(id)).use {
+            if (it.moveToFirst()) {
+                res = readMemoryUsage(it)
+            } else {
+                Log.e(TAG, "Reading memory usage $id failed!")
+            }
+        }
+
+        return res
+    }
+
+    override fun createMemoryUsage(data: MemoryUsageEntity) {
+        Log.d(TAG, "Creating memory usage with id ${data.id}")
+        val result = insertMemoryUsage(data)
+        if (result == -1L) {
+            Log.e(TAG, "Creating memory usage ${data.id} failed!")
+        }
+    }
+
+    override fun insertMemoryUsages(data: List<MemoryUsageEntity>): Int {
+        var failedCount = 0
+        for (usage in data) {
+            Log.d(TAG, "Creating memory usage with id ${usage.id}")
+            val result = insertMemoryUsage(usage)
+            if (result == -1L) {
+                Log.e(TAG, "Creating memory usage failed!")
+                failedCount += 1
+            }
+        }
+        return failedCount
+    }
+
+    private fun insertMemoryUsage(data: MemoryUsageEntity): Long {
+        try {
+            val values = ContentValues().apply {
+                this.put(Constants.DB.MemoryUsageTable.COL_ID, data.id)
+                this.put(Constants.DB.MemoryUsageTable.COL_SESSION_ID, data.sessionId)
+                this.put(Constants.DB.MemoryUsageTable.COL_FREE_MEMORY, data.freeMemory)
+                this.put(Constants.DB.MemoryUsageTable.COL_USED_MEMORY, data.usedMemory)
+                this.put(Constants.DB.MemoryUsageTable.COL_TOTAL_MEMORY, data.totalMemory)
+                this.put(Constants.DB.MemoryUsageTable.COL_MAX_MEMORY, data.maxMemory)
+                this.put(Constants.DB.MemoryUsageTable.COL_AVAILABLE_HEAP_SPACE, data.availableHeapSpace)
+                this.put(Constants.DB.MemoryUsageTable.COL_EXPORTED, data.exported)
+            }
+
+            return writableDatabase.insert(Constants.DB.MemoryUsageTable.NAME, null, values)
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to insert memory usage", e)
+            return -1L
+        }
+    }
+
     override fun getDataForExport(sessionId: String): ExportEntity {
         val session: SessionEntity? = try {
             readableDatabase.rawQuery(Constants.SQL.GET_SESSION_FOR_EXPORT, arrayOf(sessionId))
@@ -415,6 +474,43 @@ internal class DatabaseImpl(
             type = type,
             serializedData = serializedData,
             sessionId = sessionId,
+        )
+    }
+
+    private fun readMemoryUsage(cursor: Cursor): MemoryUsageEntity {
+        val idIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_ID)
+        val id = cursor.getString(idIndex)
+
+        val sessionIdIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_SESSION_ID)
+        val sessionId = cursor.getString(sessionIdIndex)
+
+        val usedMemoryIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_USED_MEMORY)
+        val usedMemory = cursor.getLong(usedMemoryIndex)
+
+        val freeMemoryIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_FREE_MEMORY)
+        val freeMemory = cursor.getLong(freeMemoryIndex)
+
+        val maxMemoryIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_MAX_MEMORY)
+        val maxMemory = cursor.getLong(maxMemoryIndex)
+
+        val totalMemoryIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_TOTAL_MEMORY)
+        val totalMemory = cursor.getLong(totalMemoryIndex)
+
+        val availableHeapSpaceIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_AVAILABLE_HEAP_SPACE)
+        val availableHeapSpace = cursor.getLong(availableHeapSpaceIndex)
+
+        val exportedIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_EXPORTED)
+        val exported = cursor.getInt(exportedIndex) != 0
+
+        return MemoryUsageEntity(
+            id = id,
+            sessionId = sessionId,
+            freeMemory = freeMemory,
+            usedMemory = usedMemory,
+            totalMemory = totalMemory,
+            maxMemory = maxMemory,
+            availableHeapSpace = availableHeapSpace,
+            exported = exported
         )
     }
 

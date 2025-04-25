@@ -26,6 +26,8 @@ import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager
 import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
+import dk.tobiasthedanish.observability.runtime.ResourceUsageCollector
+import dk.tobiasthedanish.observability.runtime.ResourceUsageStore
 import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.SchedulerImpl
 import dk.tobiasthedanish.observability.scheduling.Ticker
@@ -82,8 +84,12 @@ class TracingTestRunner {
                 db = database,
             )
             override val traceStore = TraceStoreImpl(sessionManager, database)
+            override val resourceUsageStore: ResourceUsageStore
+                get() = TODO("Not yet implemented")
             override val traceCollector: TraceCollector =
                 TraceCollectorImpl(traceStore = traceStore)
+            override val resourceUsageCollector: ResourceUsageCollector
+                get() = TODO("Not yet implemented")
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory
             )

@@ -33,3 +33,14 @@ internal data class TraceEntity(
     val endTime: Long,
     val hasEnded: Boolean,
 )
+
+internal data class MemoryUsageEntity(
+    val id: String,
+    val sessionId: String,
+    val freeMemory: Long,
+    val usedMemory: Long,
+    val totalMemory: Long,
+    val maxMemory: Long,
+    val availableHeapSpace: Long,
+    val exported: Boolean = false,
+)
