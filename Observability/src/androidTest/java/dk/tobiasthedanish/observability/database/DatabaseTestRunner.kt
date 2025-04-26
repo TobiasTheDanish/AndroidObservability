@@ -5,9 +5,11 @@ import android.app.Instrumentation
 import android.content.ContentValues
 import androidx.test.platform.app.InstrumentationRegistry
 import dk.tobiasthedanish.observability.events.EventTypes
+import dk.tobiasthedanish.observability.runtime.MemoryInspector
 import dk.tobiasthedanish.observability.storage.Constants
 import dk.tobiasthedanish.observability.storage.DatabaseImpl
 import dk.tobiasthedanish.observability.storage.EventEntity
+import dk.tobiasthedanish.observability.storage.MemoryUsageEntity
 import dk.tobiasthedanish.observability.storage.SessionEntity
 import dk.tobiasthedanish.observability.storage.TraceEntity
 import dk.tobiasthedanish.observability.time.AndroidTimeProvider
@@ -42,6 +44,7 @@ internal class DatabaseTestRunner {
 
         }
     )
+    private val memoryInspector: MemoryInspector = FakeMemoryInspector()
     private val database = DatabaseImpl(application)
     lateinit var sessionId: String
         private set
@@ -173,6 +176,43 @@ internal class DatabaseTestRunner {
 
     fun getTrace(traceId: String): TraceEntity? {
         return database.getTrace(traceId)
+    }
+
+    fun createMemoryUsage(sessionId: String? = null): MemoryUsageEntity {
+        val entity = MemoryUsageEntity(
+            id = idFactory.uuid(),
+            sessionId = sessionId ?: this.sessionId,
+            freeMemory = memoryInspector.freeMemory(),
+            usedMemory = memoryInspector.usedMemory(),
+            maxMemory = memoryInspector.maxMemory(),
+            totalMemory = memoryInspector.totalMemory(),
+            availableHeapSpace = memoryInspector.availableHeapSpace(),
+            exported = false,
+        )
+        database.createMemoryUsage(entity)
+        return entity
+    }
+
+    fun insertMemoryUsages(sessionIds: List<String?>): Pair<List<MemoryUsageEntity>, Int> {
+        val entities = sessionIds.map { sessionId ->
+            MemoryUsageEntity(
+                id = idFactory.uuid(),
+                sessionId = sessionId ?: this.sessionId,
+                freeMemory = memoryInspector.freeMemory(),
+                usedMemory = memoryInspector.usedMemory(),
+                maxMemory = memoryInspector.maxMemory(),
+                totalMemory = memoryInspector.totalMemory(),
+                availableHeapSpace = memoryInspector.availableHeapSpace(),
+                exported = false,
+            )
+        }
+
+        val failed = database.insertMemoryUsages(entities)
+        return entities to failed
+    }
+
+    fun getMemoryUsage(id: String): MemoryUsageEntity? {
+        return database.getMemoryUsage(id)
     }
 
     fun clearData() {

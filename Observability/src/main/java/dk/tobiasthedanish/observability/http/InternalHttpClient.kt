@@ -16,6 +16,7 @@ internal interface InternalHttpClient {
     suspend fun exportSession(session: SessionDTO): HttpResponse
     suspend fun markSessionCrashed(sessionId: String): HttpResponse
     suspend fun exportInstallation(installationDTO: InstallationDTO): HttpResponse
+    suspend fun exportMemoryUsage(memoryUsage: List<MemoryUsageDTO>): HttpResponse
 }
 
 private const val TAG = "InternalHttpClientImpl"
@@ -120,6 +121,32 @@ internal class InternalHttpClientImpl(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception thrown when exporting installation: ${e.message}", e)
+            return HttpResponse.Error.UnknownError(e)
+        }
+    }
+
+    override suspend fun exportMemoryUsage(memoryUsage: List<MemoryUsageDTO>): HttpResponse {
+        try {
+            Log.d(TAG, "MemoryUsage to export: $memoryUsage")
+            val res = client.post("${env.baseUrl}/api/v1/resources/memory") {
+                headers {
+                    bearerAuth(env.apiKey)
+                }
+                contentType(ContentType.Application.Json)
+                setBody(memoryUsage)
+            }
+
+            val body = res.bodyAsText()
+
+            Log.d(TAG, "exportMemoryUsage response body: $body")
+            return when (val status = res.status.value) {
+                in (500..599) -> HttpResponse.Error.ServerError(status, body)
+                in (400..499) -> HttpResponse.Error.ClientError(status, body)
+                201 -> HttpResponse.Success(body)
+                else -> HttpResponse.Error.UnknownError()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception thrown when exporting memory usage: ${e.message}", e)
             return HttpResponse.Error.UnknownError(e)
         }
     }

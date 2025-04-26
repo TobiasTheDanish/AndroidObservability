@@ -41,37 +41,25 @@ internal sealed class Constants {
             const val COL_ERROR_MESSAGE = "error_message"
             const val COL_EXPORTED = "is_exported"
         }
+
+        data object MemoryUsageTable {
+            const val NAME = "ob_memory_usage"
+            const val COL_ID = "id"
+            const val COL_SESSION_ID = "session_id"
+            const val COL_USED_MEMORY = "used_memory"
+            const val COL_FREE_MEMORY = "free_memory"
+            const val COL_MAX_MEMORY = "max_memory"
+            const val COL_TOTAL_MEMORY = "total_memory"
+            const val COL_AVAILABLE_HEAP_SPACE = "available_heap_space"
+            const val COL_EXPORTED = "is_exported"
+        }
     }
 
     data object SQL {
 
         data object Migrations {
             val V2: Array<String> = arrayOf(
-//                """
-//                    ALTER TABLE ${DB.SessionTable.NAME}
-//                    ADD COLUMN ${DB.SessionTable.COL_EXPORTED} INTEGER DEFAULT 0
-//                """.trimIndent(),
-//                """
-//                    ALTER TABLE ${DB.EventTable.NAME}
-//                    RENAME TO ${DB.EventTable.NAME}_old
-//                """.trimIndent(),
-//                """
-//                    CREATE TABLE IF NOT EXISTS ${DB.EventTable.NAME} (
-//                        ${DB.EventTable.COL_ID} TEXT PRIMARY KEY,
-//                        ${DB.EventTable.COL_SESSION_ID} TEXT NOT NULL,
-//                        ${DB.EventTable.COL_TYPE} TEXT NOT NULL,
-//                        ${DB.EventTable.COL_SERIALIZED_DATA} TEXT,
-//                        ${DB.EventTable.COL_CREATED_AT} INTEGER NOT NULL,
-//                        FOREIGN KEY (${DB.EventTable.COL_SESSION_ID})
-//                            REFERENCES ${DB.SessionTable.NAME}(${DB.SessionTable.COL_ID})
-//                            ON UPDATE CASCADE
-//                            ON DELETE CASCADE
-//                    )
-//                """.trimIndent(),
-//                """
-//                    INSERT INTO ${DB.EventTable.NAME}
-//                    SELECT * FROM ${DB.EventTable.NAME}_old
-//                """.trimIndent()
+                CREATE_MEMORY_USAGE_TABLE,
             )
         }
 
@@ -147,6 +135,33 @@ internal sealed class Constants {
         const val GET_TRACES_FOR_EXPORT = """
                 SELECT * FROM ${DB.TraceTable.NAME}
                 WHERE ${DB.TraceTable.COL_SESSION_ID} = ? AND ${DB.TraceTable.COL_EXPORTED} = 0
+            """
+
+        const val CREATE_MEMORY_USAGE_TABLE = """
+            CREATE TABLE IF NOT EXISTS ${DB.MemoryUsageTable.NAME} (
+                ${DB.MemoryUsageTable.COL_ID} TEXT PRIMARY KEY,
+                ${DB.MemoryUsageTable.COL_SESSION_ID} TEXT NOT NULL,
+                ${DB.MemoryUsageTable.COL_USED_MEMORY} INTEGER NOT NULL,
+                ${DB.MemoryUsageTable.COL_FREE_MEMORY} INTEGER NOT NULL,
+                ${DB.MemoryUsageTable.COL_MAX_MEMORY} INTEGER NOT NULL,
+                ${DB.MemoryUsageTable.COL_TOTAL_MEMORY} INTEGER NOT NULL,
+                ${DB.MemoryUsageTable.COL_AVAILABLE_HEAP_SPACE} INTEGER NOT NULL,
+                ${DB.MemoryUsageTable.COL_EXPORTED} INTEGER DEFAULT 0,
+                FOREIGN KEY (${DB.MemoryUsageTable.COL_SESSION_ID}) 
+                    REFERENCES ${DB.SessionTable.NAME}(${DB.SessionTable.COL_ID})
+                    ON UPDATE CASCADE
+                    ON DELETE CASCADE
+            )
+        """
+
+        const val GET_MEMORY_USAGE = """
+            SELECT * FROM ${DB.MemoryUsageTable.NAME}
+            WHERE ${DB.MemoryUsageTable.COL_ID} = ?
+        """
+
+        const val GET_MEMORY_USAGE_FOR_EXPORT = """
+                SELECT * FROM ${DB.MemoryUsageTable.NAME}
+                WHERE ${DB.MemoryUsageTable.COL_SESSION_ID} = ? AND ${DB.MemoryUsageTable.COL_EXPORTED} = 0
             """
     }
 }

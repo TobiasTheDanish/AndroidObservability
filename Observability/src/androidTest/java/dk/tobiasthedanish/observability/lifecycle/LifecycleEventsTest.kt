@@ -163,7 +163,7 @@ class LifecycleEventsTest {
         return bodies.any { body ->
             Log.d("didTrackRequest", "expected: $expected, actual: $body")
 
-            body.containsRequest(expected)
+            body.contains(expected)
         }
     }
 
@@ -175,9 +175,5 @@ class LifecycleEventsTest {
 
     private fun String.containsEvent(eventType: String): Boolean {
         return contains("\"type\":\"$eventType\"")
-    }
-
-    private fun String.containsRequest(expected: String): Boolean {
-        return contains(expected)
     }
 }

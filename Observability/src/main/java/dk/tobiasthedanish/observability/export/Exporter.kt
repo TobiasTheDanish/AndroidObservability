@@ -1,11 +1,11 @@
 package dk.tobiasthedanish.observability.export
 
-import android.util.Log
 import dk.tobiasthedanish.observability.collector.Collector
 import dk.tobiasthedanish.observability.http.EventDTO
 import dk.tobiasthedanish.observability.http.ExportDTO
 import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InternalHttpClient
+import dk.tobiasthedanish.observability.http.MemoryUsageDTO
 import dk.tobiasthedanish.observability.http.SessionDTO
 import dk.tobiasthedanish.observability.http.TraceDTO
 import dk.tobiasthedanish.observability.installation.InstallationManager
@@ -13,8 +13,11 @@ import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.Ticker
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.storage.Database
+import dk.tobiasthedanish.observability.utils.Logger
+import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration.Companion.seconds
 
 internal interface Exporter : Collector {
     fun resume()
@@ -23,7 +26,7 @@ internal interface Exporter : Collector {
     fun exportSessionCrash(sessionId: String)
 }
 
-private const val DEFAULT_TIME_BETWEEN_EXPORTS = 30_000L
+private const val DEFAULT_TIME_BETWEEN_EXPORTS = 30
 private const val TAG = "ExporterImpl"
 
 internal class ExporterImpl(
@@ -33,13 +36,14 @@ internal class ExporterImpl(
     private val sessionManager: SessionManager,
     private val installationManager: InstallationManager,
     private val scheduler: Scheduler,
+    private val log: Logger = Logger(TAG)
 ) : Exporter {
     private var isRegistered = AtomicBoolean(false)
     private var isExporting = AtomicBoolean(false)
 
     override fun resume() {
         if (isRegistered.get()) {
-            ticker.start(DEFAULT_TIME_BETWEEN_EXPORTS) {
+            ticker.start(DEFAULT_TIME_BETWEEN_EXPORTS.seconds.inWholeMilliseconds) {
                 export()
             }
         }
@@ -70,8 +74,8 @@ internal class ExporterImpl(
         export(sessionId)
     }
 
-    private fun exportSession(sessionDTO: SessionDTO) {
-        val future = try {
+    private fun exportSession(sessionDTO: SessionDTO): Future<Unit>? {
+        return try {
             scheduler.start {
                 val response = httpService.exportSession(sessionDTO)
 
@@ -81,24 +85,21 @@ internal class ExporterImpl(
                     }
 
                     is HttpResponse.Error -> {
-                        Log.e(TAG, "Failed to export session with id: ${sessionDTO.id}")
+                        log.error("Failed to export session with id: ${sessionDTO.id}")
                     }
                 }
             }
         } catch (e: RejectedExecutionException) {
-            Log.e(
-                TAG,
+            log.error(
                 "Execution of session export was rejected, for session with id: ${sessionDTO.id}",
                 e
             )
             null
         }
-
-        future?.get()
     }
 
-    private fun exportCollection(collection: ExportDTO) {
-        val future = try {
+    private fun exportCollection(collection: ExportDTO): Future<Unit>? {
+        return try {
             scheduler.start {
                 val response = httpService.exportCollection(collection)
 
@@ -117,20 +118,17 @@ internal class ExporterImpl(
                     }
 
                     is HttpResponse.Error -> {
-                        Log.e(TAG, "Failed to export collection for session with id: ${collection.session?.id}")
+                        log.error( "Failed to export collection for session with id: ${collection.session?.id}")
                     }
                 }
             }
         } catch (e: RejectedExecutionException) {
-            Log.e(
-                TAG,
+            log.error(
                 "Execution of collection export was rejected, for session with id: ${collection.session?.id}",
                 e
             )
             null
         }
-
-        future?.get()
     }
 
     override fun exportSessionCrash(sessionId: String) {
@@ -144,13 +142,12 @@ internal class ExporterImpl(
                     }
 
                     is HttpResponse.Error -> {
-                        Log.e(TAG, "Failed to export crash for session with id: $sessionId")
+                        log.error("Failed to export crash for session with id: $sessionId")
                     }
                 }
             }
         } catch (e: RejectedExecutionException) {
-            Log.e(
-                TAG,
+            log.error(
                 "Execution of session crash export was rejected, for session with id: $sessionId",
                 e
             )
@@ -158,19 +155,19 @@ internal class ExporterImpl(
     }
 
     override fun export(sessionId: String) {
-        Log.d(TAG, "Exporting sessionId $sessionId")
+        log.debug("Exporting sessionId $sessionId")
         if (isExporting.compareAndSet(false, true)) {
             scheduler.start {
                 try {
                     val data = database.getDataForExport(sessionId)
                     if (data.sessionEntity == null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
-                        Log.i(TAG, "No data to export returning early")
+                        log.info("No data to export returning early")
                         return@start
                     }
 
-                    Log.d(TAG, "Data to export: $data")
+                    log.debug("Data to export: $data")
 
-                    if (data.sessionEntity != null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
+                    val collectionFuture = if (data.sessionEntity != null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
                         exportSession(
                             SessionDTO(
                                 id = data.sessionEntity.id,
@@ -214,13 +211,56 @@ internal class ExporterImpl(
                             )
                         )
                     }
+
+                    // EXPORT RESOURCE USAGE
+                    val memoryFuture = try {
+                        if (data.memoryUsageEntities.isEmpty()) {
+                            null
+                        } else {
+                            scheduler.start {
+                                val response = httpService.exportMemoryUsage(data.memoryUsageEntities.map { entity ->
+                                    MemoryUsageDTO(
+                                        id = entity.id,
+                                        sessionId = entity.sessionId,
+                                        installationId = installationManager.installationId,
+                                        usedMemory = entity.usedMemory,
+                                        freeMemory = entity.freeMemory,
+                                        totalMemory = entity.totalMemory,
+                                        maxMemory = entity.maxMemory,
+                                        availableHeapSpace = entity.availableHeapSpace,
+                                    )
+                                })
+
+                                when (response) {
+                                    is HttpResponse.Success -> {
+                                        data.memoryUsageEntities.forEach {
+                                            database.setMemoryUsageExported(it.id)
+                                        }
+                                    }
+
+                                    is HttpResponse.Error -> {
+                                        log.error( "Failed to export memory usages for session with id: $sessionId")
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: RejectedExecutionException) {
+                        log.error(
+                            "Execution of memory usage export was rejected, for session with id: $sessionId",
+                            e
+                        )
+                        null
+                    }
+
+                    collectionFuture?.get()
+                    memoryFuture?.get()
                 } finally {
-                    Log.i(TAG, "Finished exporting sessionId: $sessionId")
+                    log.info("Finished exporting sessionId: $sessionId")
                     isExporting.set(false)
                 }
             }
         } else {
-            Log.i(TAG, "Export already running")
+            log.info("Export already running")
         }
     }
 }

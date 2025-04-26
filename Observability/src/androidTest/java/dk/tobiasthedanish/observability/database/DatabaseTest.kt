@@ -156,4 +156,47 @@ internal class DatabaseTest {
             }
         }
     }
+
+    @Test
+    fun testCreateMemoryUsage() {
+        val createdEntity = runner.createMemoryUsage()
+        val fetchedEntity = runner.getMemoryUsage(createdEntity.id)
+
+        Assert.assertNotNull(fetchedEntity)
+        Assert.assertEquals(createdEntity.id, fetchedEntity?.id)
+        Assert.assertEquals(createdEntity.sessionId, fetchedEntity?.sessionId)
+        Assert.assertEquals(createdEntity.usedMemory, fetchedEntity?.usedMemory)
+        Assert.assertEquals(createdEntity.freeMemory, fetchedEntity?.freeMemory)
+        Assert.assertEquals(createdEntity.maxMemory, fetchedEntity?.maxMemory)
+        Assert.assertEquals(createdEntity.totalMemory, fetchedEntity?.totalMemory)
+        Assert.assertEquals(createdEntity.availableHeapSpace, fetchedEntity?.availableHeapSpace)
+        Assert.assertEquals(createdEntity.exported, fetchedEntity?.exported)
+    }
+
+    @Test
+    fun insertMultipleMemoryUsages() {
+        val (entities, failed) = runner.insertMemoryUsages(listOf(
+            "Unknown session id",
+            null,
+            null
+        ))
+
+        Assert.assertEquals(1, failed)
+        entities.forEachIndexed { i, createdEntity ->
+            val fetchedEntity = runner.getMemoryUsage(createdEntity.id)
+            if (i == 0) {
+                Assert.assertNull(fetchedEntity)
+            } else {
+                Assert.assertNotNull(fetchedEntity)
+                Assert.assertEquals(createdEntity.id, fetchedEntity?.id)
+                Assert.assertEquals(createdEntity.sessionId, fetchedEntity?.sessionId)
+                Assert.assertEquals(createdEntity.usedMemory, fetchedEntity?.usedMemory)
+                Assert.assertEquals(createdEntity.freeMemory, fetchedEntity?.freeMemory)
+                Assert.assertEquals(createdEntity.maxMemory, fetchedEntity?.maxMemory)
+                Assert.assertEquals(createdEntity.totalMemory, fetchedEntity?.totalMemory)
+                Assert.assertEquals(createdEntity.availableHeapSpace, fetchedEntity?.availableHeapSpace)
+                Assert.assertEquals(createdEntity.exported, fetchedEntity?.exported)
+            }
+        }
+    }
 }

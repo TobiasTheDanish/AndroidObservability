@@ -23,9 +23,13 @@ import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager
 import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
+import dk.tobiasthedanish.observability.runtime.AndroidMemoryInspector
+import dk.tobiasthedanish.observability.runtime.ResourceUsageCollector
+import dk.tobiasthedanish.observability.runtime.ResourceUsageCollectorImpl
+import dk.tobiasthedanish.observability.runtime.ResourceUsageStore
+import dk.tobiasthedanish.observability.runtime.ResourceUsageStoreImpl
 import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.SchedulerImpl
-import dk.tobiasthedanish.observability.scheduling.Ticker
 import dk.tobiasthedanish.observability.scheduling.TickerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
@@ -67,11 +71,13 @@ internal interface ObservabilityConfigInternal {
     val unhandledExceptionCollector: UnhandledExceptionCollector
     val navigationCollector: NavigationCollector
     val traceCollector: TraceCollector
+    val resourceUsageCollector: ResourceUsageCollector
     val cleanupService: CleanupService
     val exporter: Exporter
     val configService: ConfigService
     val eventStore: EventStore
     val traceStore: TraceStore
+    val resourceUsageStore: ResourceUsageStore
 }
 
 internal class ObservabilityConfigInternalImpl(application: Application) :
@@ -79,7 +85,6 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
     private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
-    private val ticker: Ticker = TickerImpl(scheduler)
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
     )
@@ -91,12 +96,21 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 
     private val manifestReader: ManifestReader = ManifestReaderImpl(application)
     override val configService: ConfigService = ConfigServiceImpl(manifestReader)
+    override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
+        ticker = TickerImpl(scheduler),
+        AndroidMemoryInspector(Runtime.getRuntime()),
+    )
     override val timeProvider: TimeProvider = AndroidTimeProvider()
     override val sessionManager: SessionManager = SessionManagerImpl(
         timeProvider = timeProvider,
         idFactory = idFactory,
         sessionStore = sessionStore,
         db = database,
+    )
+    override val resourceUsageStore: ResourceUsageStore = ResourceUsageStoreImpl(
+        db = database,
+        sessionManager = sessionManager,
+        idFactory = idFactory
     )
     private val httpService = InternalHttpClientImpl(
         client = HttpClientFactory.client,
@@ -109,7 +123,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         httpService = httpService,
     )
     override val exporter: Exporter = ExporterImpl(
-        ticker = ticker,
+        ticker = TickerImpl(scheduler),
         httpService = httpService,
         database = database,
         sessionManager = sessionManager,
@@ -171,12 +185,14 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val unhandledExceptionCollector by lazy { config.unhandledExceptionCollector }
     private val navigationCollector by lazy { config.navigationCollector }
     private val traceCollector by lazy { config.traceCollector }
+    private val resourceUsageCollector by lazy { config.resourceUsageCollector }
     private val traceFactory by lazy { config.traceFactory }
     private val cleanupService by lazy { config.cleanupService }
     private val exporter by lazy { config.exporter }
     private val configService by lazy { config.configService }
     private val eventStore by lazy { config.eventStore }
     private val traceStore by lazy { config.traceStore }
+    private val resourceUsageStore by lazy { config.resourceUsageStore }
 
     private var isInitialized: Boolean = false
     private var isStarted: Boolean = false
@@ -205,6 +221,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 traceCollector.register()
                 navigationManager.register()
                 exporter.register()
+                resourceUsageCollector.addListener(resourceUsageStore)
+                resourceUsageCollector.register()
                 isStarted = true
             }
         }
@@ -219,6 +237,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 traceCollector.unregister()
                 navigationManager.unregister()
                 exporter.unregister()
+                resourceUsageCollector.removeListener(resourceUsageStore)
+                resourceUsageCollector.unregister()
                 isStarted = false
             }
         }
@@ -246,6 +266,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     internal fun triggerExport() {
         eventStore.flush()
         traceStore.flush()
+        resourceUsageStore.flush()
         exporter.export(sessionManager.getSessionId())
     }
 
@@ -258,8 +279,8 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         sessionManager.onAppForeground()
         synchronized(startLock) {
             if (isStarted) {
-                // Exporter is useful here
                 exporter.resume()
+                resourceUsageCollector.register()
             }
         }
     }
@@ -268,6 +289,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         sessionManager.onAppBackground()
         synchronized(startLock) {
             if (isStarted) {
+                resourceUsageCollector.unregister()
                 exporter.pause()
                 cleanupService.clearData()
             }

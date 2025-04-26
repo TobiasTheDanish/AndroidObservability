@@ -1,6 +1,5 @@
 package dk.tobiasthedanish.observability.http
 
-import android.os.Build
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -47,4 +46,16 @@ internal data class InstallationDTO(
     val sdkVersion: Int,
     val model: String,
     val brand: String,
+)
+
+@Serializable
+internal data class MemoryUsageDTO(
+    val id: String,
+    val sessionId: String,
+    val installationId: String,
+    val freeMemory: Long,
+    val usedMemory: Long,
+    val totalMemory: Long,
+    val maxMemory: Long,
+    val availableHeapSpace: Long,
 )
