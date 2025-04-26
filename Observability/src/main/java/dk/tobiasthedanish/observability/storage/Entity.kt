@@ -4,6 +4,7 @@ internal data class ExportEntity(
     val sessionEntity: SessionEntity?,
     val eventEntities: List<EventEntity>,
     val traceEntities: List<TraceEntity>,
+    val memoryUsageEntities: List<MemoryUsageEntity>
 )
 
 internal data class SessionEntity(

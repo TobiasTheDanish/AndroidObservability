@@ -158,5 +158,10 @@ internal sealed class Constants {
             SELECT * FROM ${DB.MemoryUsageTable.NAME}
             WHERE ${DB.MemoryUsageTable.COL_ID} = ?
         """
+
+        const val GET_MEMORY_USAGE_FOR_EXPORT = """
+                SELECT * FROM ${DB.MemoryUsageTable.NAME}
+                WHERE ${DB.MemoryUsageTable.COL_SESSION_ID} = ? AND ${DB.MemoryUsageTable.COL_EXPORTED} = 0
+            """
     }
 }

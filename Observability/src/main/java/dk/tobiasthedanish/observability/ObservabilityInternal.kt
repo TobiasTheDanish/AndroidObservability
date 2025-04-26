@@ -30,7 +30,6 @@ import dk.tobiasthedanish.observability.runtime.ResourceUsageStore
 import dk.tobiasthedanish.observability.runtime.ResourceUsageStoreImpl
 import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.SchedulerImpl
-import dk.tobiasthedanish.observability.scheduling.Ticker
 import dk.tobiasthedanish.observability.scheduling.TickerImpl
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.session.SessionManagerImpl
@@ -86,7 +85,6 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
     private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
-    private val ticker: Ticker = TickerImpl(scheduler)
     private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
         dataStore = application.dataStore,
     )
@@ -98,7 +96,10 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 
     private val manifestReader: ManifestReader = ManifestReaderImpl(application)
     override val configService: ConfigService = ConfigServiceImpl(manifestReader)
-    override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(ticker, AndroidMemoryInspector(Runtime.getRuntime()))
+    override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
+        ticker = TickerImpl(scheduler),
+        AndroidMemoryInspector(Runtime.getRuntime()),
+    )
     override val timeProvider: TimeProvider = AndroidTimeProvider()
     override val sessionManager: SessionManager = SessionManagerImpl(
         timeProvider = timeProvider,
@@ -122,7 +123,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         httpService = httpService,
     )
     override val exporter: Exporter = ExporterImpl(
-        ticker = ticker,
+        ticker = TickerImpl(scheduler),
         httpService = httpService,
         database = database,
         sessionManager = sessionManager,
@@ -221,6 +222,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 navigationManager.register()
                 exporter.register()
                 resourceUsageCollector.addListener(resourceUsageStore)
+                resourceUsageCollector.register()
                 isStarted = true
             }
         }
@@ -236,6 +238,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
                 navigationManager.unregister()
                 exporter.unregister()
                 resourceUsageCollector.removeListener(resourceUsageStore)
+                resourceUsageCollector.unregister()
                 isStarted = false
             }
         }
@@ -263,6 +266,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     internal fun triggerExport() {
         eventStore.flush()
         traceStore.flush()
+        resourceUsageStore.flush()
         exporter.export(sessionManager.getSessionId())
     }
 

@@ -35,6 +35,7 @@ internal interface Database {
     fun getMemoryUsage(id: String): MemoryUsageEntity?
     fun createMemoryUsage(data: MemoryUsageEntity)
     fun insertMemoryUsages(data: List<MemoryUsageEntity>): Int
+    fun setMemoryUsageExported(id: String)
 
     fun getDataForExport(sessionId: String): ExportEntity
 
@@ -342,6 +343,27 @@ internal class DatabaseImpl(
         return failedCount
     }
 
+    override fun setMemoryUsageExported(id: String) {
+        try {
+            val values = ContentValues().apply {
+                put(Constants.DB.MemoryUsageTable.COL_EXPORTED, 1)
+            }
+
+            val result = writableDatabase.update(
+                Constants.DB.MemoryUsageTable.NAME,
+                values,
+                "${Constants.DB.MemoryUsageTable.COL_ID} = ?",
+                arrayOf(id)
+            )
+
+            if (result == -1) {
+                Log.e(TAG, "Failed to set memory usage exported for memory usage: $id")
+            }
+        } catch (e: SQLiteException) {
+            Log.e(TAG, "Failed to set memory usage exported for memory usage: $id", e)
+        }
+    }
+
     private fun insertMemoryUsage(data: MemoryUsageEntity): Long {
         try {
             val values = ContentValues().apply {
@@ -403,7 +425,22 @@ internal class DatabaseImpl(
 
             res
         } catch (e: SQLiteException) {
-            Log.d(TAG, "Failed to get events for export for sessionID $sessionId")
+            Log.d(TAG, "Failed to get traces for export for sessionID $sessionId")
+            emptyList()
+        }
+
+        val usages: List<MemoryUsageEntity> = try {
+            val res = mutableListOf<MemoryUsageEntity>()
+
+            readableDatabase.rawQuery(Constants.SQL.GET_MEMORY_USAGE_FOR_EXPORT, arrayOf(sessionId)).use {
+                while (it.moveToNext()) {
+                    res.add(readMemoryUsage(it))
+                }
+            }
+
+            res
+        } catch (e: SQLiteException) {
+            Log.d(TAG, "Failed to get memory usages for export for sessionID $sessionId")
             emptyList()
         }
 
@@ -411,6 +448,7 @@ internal class DatabaseImpl(
             sessionEntity = session,
             eventEntities = events,
             traceEntities = traces,
+            memoryUsageEntities = usages,
         )
     }
 

@@ -111,11 +111,16 @@ internal class FakeDatabase: Database {
         return 0
     }
 
+    override fun setMemoryUsageExported(id: String) {
+
+    }
+
     override fun getDataForExport(sessionId: String): ExportEntity {
         return ExportEntity(
             null,
             emptyList(),
-            emptyList()
+            emptyList(),
+            emptyList(),
         )
     }
 
