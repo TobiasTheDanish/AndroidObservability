@@ -2,6 +2,7 @@ package dk.tobiasthedanish.observability.runtime
 
 import dk.tobiasthedanish.observability.collector.Collector
 import dk.tobiasthedanish.observability.scheduling.Ticker
+import dk.tobiasthedanish.observability.time.TimeProvider
 import dk.tobiasthedanish.observability.utils.Logger
 import kotlin.time.Duration.Companion.seconds
 
@@ -11,6 +12,7 @@ internal data class MemoryUsage(
     val totalMemory: Long,
     val maxMemory: Long,
     val availableHeapSpace: Long,
+    val createdAt: Long,
 )
 
 internal interface MemoryUsageListener {
@@ -27,6 +29,7 @@ private const val TAG = "ResourceUsageCollectorImpl"
 internal class ResourceUsageCollectorImpl(
     private val ticker: Ticker,
     private val memoryInspector: MemoryInspector,
+    private val timeProvider: TimeProvider,
     private val logger: Logger = Logger(TAG)
 ) : ResourceUsageCollector {
     private val listeners = mutableSetOf<MemoryUsageListener>()
@@ -61,6 +64,7 @@ internal class ResourceUsageCollectorImpl(
             totalMemory = memoryInspector.totalMemory(),
             maxMemory = memoryInspector.maxMemory(),
             availableHeapSpace = memoryInspector.availableHeapSpace(),
+            createdAt = timeProvider.now(),
         )
 
         listeners.forEach { listener -> listener.onReceive(usage) }

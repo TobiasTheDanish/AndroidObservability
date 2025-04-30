@@ -26,8 +26,11 @@ import dk.tobiasthedanish.observability.navigation.NavigationCollector
 import dk.tobiasthedanish.observability.navigation.NavigationCollectorImpl
 import dk.tobiasthedanish.observability.navigation.NavigationManager
 import dk.tobiasthedanish.observability.navigation.NavigationManagerImpl
+import dk.tobiasthedanish.observability.runtime.AndroidMemoryInspector
 import dk.tobiasthedanish.observability.runtime.ResourceUsageCollector
+import dk.tobiasthedanish.observability.runtime.ResourceUsageCollectorImpl
 import dk.tobiasthedanish.observability.runtime.ResourceUsageStore
+import dk.tobiasthedanish.observability.runtime.ResourceUsageStoreImpl
 import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.SchedulerImpl
 import dk.tobiasthedanish.observability.scheduling.Ticker
@@ -60,10 +63,12 @@ class TracingTestRunner {
     fun initObservability() {
 
         val config = object : ObservabilityConfigInternal {
+            private val manifestReader = ManifestReaderImpl(application)
             private val scheduler: Scheduler = SchedulerImpl(
                 Executors.newSingleThreadScheduledExecutor(),
                 CoroutineScope(Dispatchers.IO)
             )
+            private val ticker: Ticker = TickerImpl(scheduler)
             private val idFactory: IdFactory = IdFactoryImpl()
             private val localPreferencesDataStore = LocalPreferencesDataStoreImpl(
                 dataStore = application.dataStore,
@@ -84,19 +89,21 @@ class TracingTestRunner {
                 db = database,
             )
             override val traceStore = TraceStoreImpl(sessionManager, database)
-            override val resourceUsageStore: ResourceUsageStore
-                get() = TODO("Not yet implemented")
+            override val resourceUsageStore: ResourceUsageStore = ResourceUsageStoreImpl(
+                db = database,
+                idFactory = idFactory,
+                sessionManager = sessionManager,
+            )
             override val traceCollector: TraceCollector =
                 TraceCollectorImpl(traceStore = traceStore)
-            override val resourceUsageCollector: ResourceUsageCollector
-                get() = TODO("Not yet implemented")
+            override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
+                ticker = ticker,
+                memoryInspector = AndroidMemoryInspector(Runtime.getRuntime()),
+                timeProvider = timeProvider
+            )
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory
             )
-
-            private val ticker: Ticker = TickerImpl(scheduler)
-            private val manifestReader = ManifestReaderImpl(application)
-
             override val cleanupService: CleanupService =
                 CleanupServiceImpl(database, sessionManager)
             override val configService: ConfigService = ConfigServiceImpl(manifestReader)

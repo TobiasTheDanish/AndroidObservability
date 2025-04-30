@@ -27,6 +27,7 @@ internal class FakeMemoryInspector: MemoryInspector {
                 totalMemory = 14L,
                 maxMemory = 25L,
                 availableHeapSpace = 21L,
+                createdAt = 12345,
             )
     }
 

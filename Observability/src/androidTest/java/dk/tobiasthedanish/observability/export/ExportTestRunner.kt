@@ -91,9 +91,11 @@ class ExportTestRunner {
             )
             override val traceCollector: TraceCollector = TraceCollectorImpl(traceStore = traceStore)
             override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
-                TickerImpl(
+                ticker = TickerImpl(
                     testScheduler
-                ), memoryInspector = AndroidMemoryInspector(Runtime.getRuntime())
+                ),
+                timeProvider = timeProvider,
+                memoryInspector = AndroidMemoryInspector(Runtime.getRuntime())
             )
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory

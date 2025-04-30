@@ -66,6 +66,7 @@ internal class ResourceUsageStoreImpl(
             totalMemory = usage.totalMemory,
             maxMemory = usage.maxMemory,
             availableHeapSpace = usage.availableHeapSpace,
+            createdAt = usage.createdAt
         )
 
         if (!memoryUsageQueue.offer(entity)) {

@@ -97,7 +97,9 @@ internal class LifecycleEventsTestRunner {
             )
             override val traceCollector: TraceCollector = TraceCollectorImpl(traceStore = traceStore)
             override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
-                TickerImpl(scheduler), memoryInspector = AndroidMemoryInspector(Runtime.getRuntime())
+                ticker = TickerImpl(scheduler),
+                timeProvider = timeProvider,
+                memoryInspector = AndroidMemoryInspector(Runtime.getRuntime()),
             )
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory

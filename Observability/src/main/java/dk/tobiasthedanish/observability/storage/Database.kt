@@ -375,6 +375,7 @@ internal class DatabaseImpl(
                 this.put(Constants.DB.MemoryUsageTable.COL_MAX_MEMORY, data.maxMemory)
                 this.put(Constants.DB.MemoryUsageTable.COL_AVAILABLE_HEAP_SPACE, data.availableHeapSpace)
                 this.put(Constants.DB.MemoryUsageTable.COL_EXPORTED, data.exported)
+                this.put(Constants.DB.MemoryUsageTable.COL_CREATED_AT, data.createdAt)
             }
 
             return writableDatabase.insert(Constants.DB.MemoryUsageTable.NAME, null, values)
@@ -540,6 +541,9 @@ internal class DatabaseImpl(
         val exportedIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_EXPORTED)
         val exported = cursor.getInt(exportedIndex) != 0
 
+        val createdAtIndex = cursor.getColumnIndex(Constants.DB.MemoryUsageTable.COL_CREATED_AT)
+        val createdAt = cursor.getLong(createdAtIndex)
+
         return MemoryUsageEntity(
             id = id,
             sessionId = sessionId,
@@ -548,7 +552,8 @@ internal class DatabaseImpl(
             totalMemory = totalMemory,
             maxMemory = maxMemory,
             availableHeapSpace = availableHeapSpace,
-            exported = exported
+            exported = exported,
+            createdAt = createdAt,
         )
     }
 

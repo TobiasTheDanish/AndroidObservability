@@ -1,18 +1,28 @@
 package dk.tobiasthedanish.observability.runtime
 
+import dk.tobiasthedanish.observability.time.TimeProvider
+import dk.tobiasthedanish.observability.utils.Logger
 import org.junit.Assert.*
 import org.junit.Before
 
 import org.junit.Test
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 
 class ResourceUsageCollectorImplTest {
     private lateinit var resourceUsageCollector: ResourceUsageCollector
+    private val mockTimeProvider = mock<TimeProvider> {
+        on { now() }.doReturn(1234)
+    }
+    private val mockLogger = mock<Logger>()
 
     @Before
     fun setup() {
         resourceUsageCollector = ResourceUsageCollectorImpl(
             ticker = FakeTicker(),
             memoryInspector = FakeMemoryInspector(),
+            timeProvider = mockTimeProvider,
+            logger = mockLogger,
         )
     }
 

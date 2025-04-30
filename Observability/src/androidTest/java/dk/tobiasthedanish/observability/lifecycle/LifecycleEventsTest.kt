@@ -27,6 +27,7 @@ class LifecycleEventsTest {
         @JvmStatic
         @BeforeClass
         fun before() {
+            Observability.stop()
             runner.disableUncaughtExceptionHandler()
             runner.initObservability()
         }

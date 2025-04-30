@@ -44,4 +44,5 @@ internal data class MemoryUsageEntity(
     val maxMemory: Long,
     val availableHeapSpace: Long,
     val exported: Boolean = false,
+    val createdAt: Long,
 )

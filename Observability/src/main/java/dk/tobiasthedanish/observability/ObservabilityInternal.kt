@@ -95,12 +95,13 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
     )
 
     private val manifestReader: ManifestReader = ManifestReaderImpl(application)
+    override val timeProvider: TimeProvider = AndroidTimeProvider()
     override val configService: ConfigService = ConfigServiceImpl(manifestReader)
     override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
         ticker = TickerImpl(scheduler),
-        AndroidMemoryInspector(Runtime.getRuntime()),
+        memoryInspector = AndroidMemoryInspector(Runtime.getRuntime()),
+        timeProvider = timeProvider,
     )
-    override val timeProvider: TimeProvider = AndroidTimeProvider()
     override val sessionManager: SessionManager = SessionManagerImpl(
         timeProvider = timeProvider,
         idFactory = idFactory,

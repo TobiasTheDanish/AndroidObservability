@@ -58,4 +58,5 @@ internal data class MemoryUsageDTO(
     val totalMemory: Long,
     val maxMemory: Long,
     val availableHeapSpace: Long,
+    val createdAt: Long,
 )

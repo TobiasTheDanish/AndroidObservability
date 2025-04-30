@@ -51,6 +51,7 @@ internal sealed class Constants {
             const val COL_MAX_MEMORY = "max_memory"
             const val COL_TOTAL_MEMORY = "total_memory"
             const val COL_AVAILABLE_HEAP_SPACE = "available_heap_space"
+            const val COL_CREATED_AT = "created_at"
             const val COL_EXPORTED = "is_exported"
         }
     }
@@ -146,6 +147,7 @@ internal sealed class Constants {
                 ${DB.MemoryUsageTable.COL_MAX_MEMORY} INTEGER NOT NULL,
                 ${DB.MemoryUsageTable.COL_TOTAL_MEMORY} INTEGER NOT NULL,
                 ${DB.MemoryUsageTable.COL_AVAILABLE_HEAP_SPACE} INTEGER NOT NULL,
+                ${DB.MemoryUsageTable.COL_CREATED_AT} INTEGER NOT NULL,
                 ${DB.MemoryUsageTable.COL_EXPORTED} INTEGER DEFAULT 0,
                 FOREIGN KEY (${DB.MemoryUsageTable.COL_SESSION_ID}) 
                     REFERENCES ${DB.SessionTable.NAME}(${DB.SessionTable.COL_ID})

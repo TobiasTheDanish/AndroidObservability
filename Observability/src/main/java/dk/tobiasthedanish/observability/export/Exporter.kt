@@ -228,6 +228,7 @@ internal class ExporterImpl(
                                         totalMemory = entity.totalMemory,
                                         maxMemory = entity.maxMemory,
                                         availableHeapSpace = entity.availableHeapSpace,
+                                        createdAt = entity.createdAt,
                                     )
                                 })
 

@@ -188,6 +188,7 @@ internal class DatabaseTestRunner {
             totalMemory = memoryInspector.totalMemory(),
             availableHeapSpace = memoryInspector.availableHeapSpace(),
             exported = false,
+            createdAt = timeProvider.now()
         )
         database.createMemoryUsage(entity)
         return entity
@@ -204,6 +205,7 @@ internal class DatabaseTestRunner {
                 totalMemory = memoryInspector.totalMemory(),
                 availableHeapSpace = memoryInspector.availableHeapSpace(),
                 exported = false,
+                createdAt = timeProvider.now(),
             )
         }
 
