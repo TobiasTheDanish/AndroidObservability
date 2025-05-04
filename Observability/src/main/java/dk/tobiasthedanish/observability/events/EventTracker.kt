@@ -3,6 +3,7 @@ package dk.tobiasthedanish.observability.events
 import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.utils.isUnhandledException
+import kotlin.reflect.KType
 
 internal interface EventTracker {
     fun <T: Any> track(
@@ -10,6 +11,7 @@ internal interface EventTracker {
         timeStamp: Long,
         type: String,
     )
+    fun <T: Any> trackCustom(data: T, timeStamp: Long, kType: KType)
 }
 
 internal class EventTrackerImpl(
@@ -30,5 +32,17 @@ internal class EventTrackerImpl(
             exporter.exportSessionCrash(event.sessionId)
             exporter.export(event.sessionId)
         }
+    }
+
+    override fun <T : Any> trackCustom(data: T, timeStamp: Long, kType: KType) {
+        val event = Event(
+            data = data,
+            type = EventTypes.CUSTOM,
+            timestamp = timeStamp,
+            sessionId = sessionManager.getSessionId(),
+        )
+
+        sessionManager.onEventTracked(event)
+        eventStore.storeCustom(event, kType)
     }
 }

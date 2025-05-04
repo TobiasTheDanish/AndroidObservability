@@ -5,4 +5,5 @@ internal object EventTypes {
     const val LIFECYCLE_APP = "lifecycle_app"
     const val EXCEPTION = "exception"
     const val NAVIGATION = "navigation"
+    const val CUSTOM = "custom"
 }

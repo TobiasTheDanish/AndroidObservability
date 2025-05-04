@@ -60,6 +60,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.Executors
+import kotlin.reflect.KType
 
 internal interface ObservabilityConfigInternal {
     val installationManager: InstallationManager
@@ -264,6 +265,10 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         val event = ExceptionEventFactory.create(thread, throwable, true)
 
         eventTracker.track(event, timeProvider.now(), EventTypes.EXCEPTION)
+    }
+
+    fun<T: Any> trackEvent(data: T, kType: KType) {
+        eventTracker.trackCustom(data, timeProvider.now(), kType)
     }
 
     fun createTrace(name: String): Trace {

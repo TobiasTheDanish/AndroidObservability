@@ -6,6 +6,8 @@ import androidx.annotation.VisibleForTesting
 import dk.tobiasthedanish.observability.tracing.Trace
 import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 
 object Observability {
     private val isInitialized = AtomicBoolean(false)
@@ -58,6 +60,13 @@ object Observability {
     }
 
     @JvmStatic
+    fun <T: Any> trackEvent(data: T, kType: KType) {
+        if (isInitialized.get()) {
+            observability.trackEvent(data, kType)
+        }
+    }
+
+    @JvmStatic
     fun createTrace(name: String): Trace? {
         if (isInitialized.get()) {
             return observability.createTrace(name)
@@ -91,4 +100,8 @@ object Observability {
     internal fun triggerExport() {
         observability.triggerExport()
     }
+}
+
+inline fun <reified T:Any> Observability.trackEvent(data: T) {
+    trackEvent(data, typeOf<T>())
 }
