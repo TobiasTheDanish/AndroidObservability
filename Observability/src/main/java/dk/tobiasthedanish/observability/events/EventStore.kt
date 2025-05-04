@@ -31,7 +31,7 @@ internal class EventStoreImpl(
 
     override fun <T: Any> store(event: Event<T>) {
         val serializedData: String = when (event.type) {
-            EventTypes.UNHANDLED_EXCEPTION ->
+            EventTypes.EXCEPTION ->
                 Json.encodeToString(ExceptionEvent.serializer(), event.data as ExceptionEvent)
 
             EventTypes.LIFECYCLE_APP ->

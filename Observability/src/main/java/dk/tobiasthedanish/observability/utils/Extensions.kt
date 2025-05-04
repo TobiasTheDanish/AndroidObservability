@@ -5,5 +5,5 @@ import dk.tobiasthedanish.observability.events.EventTypes
 import dk.tobiasthedanish.observability.exception.ExceptionEvent
 
 internal fun <T:Any> Event<T>.isUnhandledException(): Boolean {
-    return this.type == EventTypes.UNHANDLED_EXCEPTION && this.data is ExceptionEvent && !this.data.handled
+    return this.type == EventTypes.EXCEPTION && this.data is ExceptionEvent && !this.data.handled
 }

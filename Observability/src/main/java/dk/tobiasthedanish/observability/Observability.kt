@@ -51,6 +51,13 @@ object Observability {
     }
 
     @JvmStatic
+    fun exceptionHandled(throwable: Throwable, thread: Thread = Thread.currentThread()) {
+        if (isInitialized.get()) {
+            observability.exceptionHandled(thread, throwable)
+        }
+    }
+
+    @JvmStatic
     fun createTrace(name: String): Trace? {
         if (isInitialized.get()) {
             return observability.createTrace(name)

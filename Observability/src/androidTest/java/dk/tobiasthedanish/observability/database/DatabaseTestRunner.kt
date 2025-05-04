@@ -62,7 +62,7 @@ internal class DatabaseTestRunner {
         values = ContentValues().apply {
             put(Constants.DB.EventTable.COL_ID, idFactory.uuid())
             put(Constants.DB.EventTable.COL_CREATED_AT, timeProvider.now())
-            put(Constants.DB.EventTable.COL_TYPE, EventTypes.UNHANDLED_EXCEPTION)
+            put(Constants.DB.EventTable.COL_TYPE, EventTypes.EXCEPTION)
             put(Constants.DB.EventTable.COL_SERIALIZED_DATA, "")
             put(Constants.DB.EventTable.COL_SESSION_ID, sessionId)
         }

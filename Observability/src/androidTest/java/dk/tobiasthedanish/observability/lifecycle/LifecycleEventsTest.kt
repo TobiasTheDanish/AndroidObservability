@@ -105,7 +105,7 @@ class LifecycleEventsTest {
         val bodies = aggregateRequests(3)
         Assert.assertTrue(
             "No Unhandled exception event was tracked by server",
-            bodies.didTrackEvent(EventTypes.UNHANDLED_EXCEPTION)
+            bodies.didTrackEvent(EventTypes.EXCEPTION)
         )
         Assert.assertTrue(
             "No session crash request was tracked by server",
