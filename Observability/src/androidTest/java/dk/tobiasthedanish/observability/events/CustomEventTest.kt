@@ -1,9 +1,9 @@
-package dk.tobiasthedanish.observability.export
+package dk.tobiasthedanish.observability.events
 
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.LargeTest
 import dk.tobiasthedanish.observability.Observability
+import dk.tobiasthedanish.observability.trackEvent
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -14,14 +14,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.ArrayList
 import java.util.concurrent.TimeUnit
-import kotlin.time.Duration.Companion.seconds
 
 @RunWith(AndroidJUnit4::class)
-class ExportTest {
+class CustomEventTest {
     private val mockWebServer: MockWebServer = MockWebServer()
 
     companion object {
-        private val runner: ExportTestRunner = ExportTestRunner()
+        private val runner: CustomEventTestRunner = CustomEventTestRunner()
         @JvmStatic
         @BeforeClass
         fun before() {
@@ -29,6 +28,7 @@ class ExportTest {
             runner.initObservability()
         }
     }
+
 
     @Before
     fun setup() {
@@ -43,17 +43,18 @@ class ExportTest {
     }
 
     @Test
-    @LargeTest
-    fun testMemoryUsageExport() {
-        runner.advanceTimeBy(45.seconds)
+    fun testTrackCustomEvent() {
+        val nonNullData = CustomEventTestData(title = "Romeo and Juliet", description = "A love story by William Shakespeare")
+        Observability.trackEvent(nonNullData)
+
+        val nullData = CustomEventTestData(title = "Hamlet")
+        Observability.trackEvent(nullData)
 
         triggerExport()
 
         val bodies = aggregateRequests()
-        Assert.assertTrue(
-            "Web server did NOT track memory usage request",
-            bodies.didTrackRequest("POST", "/api/v1/resources/memory")
-        )
+        Assert.assertTrue(bodies.didTrackRequest("POST", "/api/v1/collection"))
+        Assert.assertTrue(bodies.didTrackEvent(EventTypes.CUSTOM))
     }
 
     private fun triggerExport() {
@@ -86,5 +87,15 @@ class ExportTest {
 
             body.contains(expected)
         }
+    }
+
+    private fun List<String>.didTrackEvent(type: String): Boolean {
+        val bodies = this
+
+        return bodies.any { body -> body.containsEvent(type) }
+    }
+
+    private fun String.containsEvent(eventType: String): Boolean {
+        return contains("\"type\":\"$eventType\"")
     }
 }

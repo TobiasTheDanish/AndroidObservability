@@ -120,7 +120,7 @@ class ExportTestRunner {
                 installationManager = installationManager,
                 scheduler = scheduler
             )
-            private val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
+            override val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)
             override val navigationManager: NavigationManager = NavigationManagerImpl()
             override val activityLifecycleCollector: ActivityLifecycleCollector = ActivityLifecycleCollector(
