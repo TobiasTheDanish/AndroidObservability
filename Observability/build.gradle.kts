@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -35,6 +38,59 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    testOptions {
+        unitTests.all {
+            it.testLogging {
+                events (
+                    TestLogEvent.FAILED,
+                    TestLogEvent.PASSED,
+                    TestLogEvent.SKIPPED,
+                    TestLogEvent.STANDARD_OUT
+                )
+                exceptionFormat = TestExceptionFormat.FULL
+                showExceptions = true
+                showCauses = true
+                showStackTraces = true
+
+                debug {
+                    events (
+                        TestLogEvent.STARTED,
+                        TestLogEvent.FAILED,
+                        TestLogEvent.PASSED,
+                        TestLogEvent.SKIPPED,
+                        TestLogEvent.STANDARD_ERROR,
+                        TestLogEvent.STANDARD_OUT
+                    )
+                    exceptionFormat = TestExceptionFormat.FULL
+                }
+                info.events = debug.events
+                info.exceptionFormat = debug.exceptionFormat
+            }
+            val failedTests = mutableListOf<Pair<String, String>>()
+            it.afterTest(KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+                if (result.resultType == TestResult.ResultType.FAILURE) {
+                    val parentDisplay = if(desc.parent != null) "${desc.parent?.displayName}." else ""
+                    failedTests.add("${parentDisplay}${desc.displayName}" to (result.exception?.toString() ?: "Unknown reason"))
+                }
+            }))
+            it.afterSuite(KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+                if (desc.parent == null) {
+                    val output = "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} passed, ${result.failedTestCount} failed, ${result.skippedTestCount} skipped)"
+                    val (startItem, endItem) = ("|  " to "  |")
+                    val repeatLength = startItem.length + output.length + endItem.length
+                    println("\n${"-".repeat(repeatLength)}\n${startItem}${output}${endItem}\n${"-".repeat(repeatLength)}")
+                    if (failedTests.size > 0) {
+                        val maxNameLen = failedTests.maxOf { it.first.length }
+
+                        println("Failed tests:")
+                        failedTests.forEach { (name, msg) ->
+                            println("   $name:${" ".repeat((maxNameLen - name.length) + 1)}$msg")
+                        }
+                    }
+                }
+            }))
+        }
     }
 }
 

@@ -8,6 +8,8 @@ import dk.tobiasthedanish.observability.events.EventStore
 import dk.tobiasthedanish.observability.events.EventStoreImpl
 import dk.tobiasthedanish.observability.events.EventTracker
 import dk.tobiasthedanish.observability.events.EventTrackerImpl
+import dk.tobiasthedanish.observability.events.EventTypes
+import dk.tobiasthedanish.observability.exception.ExceptionEventFactory
 import dk.tobiasthedanish.observability.exception.UnhandledExceptionCollector
 import dk.tobiasthedanish.observability.export.Exporter
 import dk.tobiasthedanish.observability.export.ExporterImpl
@@ -58,6 +60,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.Executors
+import kotlin.reflect.KType
 
 internal interface ObservabilityConfigInternal {
     val installationManager: InstallationManager
@@ -75,6 +78,7 @@ internal interface ObservabilityConfigInternal {
     val cleanupService: CleanupService
     val exporter: Exporter
     val configService: ConfigService
+    val eventTracker: EventTracker
     val eventStore: EventStore
     val traceStore: TraceStore
     val resourceUsageStore: ResourceUsageStore
@@ -132,7 +136,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         scheduler = scheduler,
     )
     override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
-    private val eventTracker: EventTracker = EventTrackerImpl(
+    override val eventTracker: EventTracker = EventTrackerImpl(
         eventStore = eventStore,
         sessionManager = sessionManager,
         exporter = exporter,
@@ -177,6 +181,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 }
 
 internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLifecycleListener {
+    private val timeProvider by lazy { config.timeProvider }
     private val installationManager by lazy { config.installationManager }
     private val sessionManager by lazy { config.sessionManager }
     private val lifecycleManager by lazy { config.lifecycleManager }
@@ -191,6 +196,7 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
     private val cleanupService by lazy { config.cleanupService }
     private val exporter by lazy { config.exporter }
     private val configService by lazy { config.configService }
+    private val eventTracker by lazy { config.eventTracker }
     private val eventStore by lazy { config.eventStore }
     private val traceStore by lazy { config.traceStore }
     private val resourceUsageStore by lazy { config.resourceUsageStore }
@@ -253,6 +259,16 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         if (isStarted) {
             navigationManager.onNavigation(route)
         }
+    }
+
+    fun exceptionHandled(thread: Thread, throwable: Throwable) {
+        val event = ExceptionEventFactory.create(thread, throwable, true)
+
+        eventTracker.track(event, timeProvider.now(), EventTypes.EXCEPTION)
+    }
+
+    fun<T: Any> trackEvent(data: T, kType: KType) {
+        eventTracker.trackCustom(data, timeProvider.now(), kType)
     }
 
     fun createTrace(name: String): Trace {
