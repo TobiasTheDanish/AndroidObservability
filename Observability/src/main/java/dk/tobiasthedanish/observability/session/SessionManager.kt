@@ -1,12 +1,13 @@
 package dk.tobiasthedanish.observability.session
 
-import android.util.Log
 import dk.tobiasthedanish.observability.events.Event
 import dk.tobiasthedanish.observability.lifecycle.AppLifecycleListener
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.SessionEntity
 import dk.tobiasthedanish.observability.time.TimeProvider
+import dk.tobiasthedanish.observability.utils.ConfigService
 import dk.tobiasthedanish.observability.utils.IdFactory
+import dk.tobiasthedanish.observability.utils.Logger
 import dk.tobiasthedanish.observability.utils.isUnhandledException
 import kotlinx.coroutines.runBlocking
 
@@ -16,8 +17,6 @@ internal interface SessionManager: AppLifecycleListener {
     fun <T : Any> onEventTracked(event: Event<T>)
 }
 
-private const val SESSION_MAX_DURATION_MS = 21600000
-private const val SESSION_MAX_TIME_SINCE_EVENT = 1200000
 private const val TAG = "SessionManagerImpl"
 
 internal class SessionManagerImpl(
@@ -25,6 +24,8 @@ internal class SessionManagerImpl(
     private val idFactory: IdFactory,
     private val sessionStore: SessionStore,
     private val db: Database,
+    private val configService: ConfigService,
+    private val logger: Logger = Logger(TAG)
 ): SessionManager {
     private var currentSession: Session? = null
     private var appBackgroundTime: Long = 0
@@ -34,7 +35,7 @@ internal class SessionManagerImpl(
 
         currentSession = when {
             recentSession != null && continueSession(recentSession) -> {
-                Log.d(TAG, "Reusing session with id: ${recentSession.id}")
+                logger.debug("Reusing session with id: ${recentSession.id}")
                 recentSession
             }
             else -> createNewSession()
@@ -78,27 +79,27 @@ internal class SessionManagerImpl(
 
     private fun continueSession(session: Session): Boolean {
         if (session.crashed) {
-            Log.d(TAG, "Recent session crashed. DONT continue this session")
+            logger.debug("Recent session crashed. DONT continue this session")
             return false
         }
 
         val sessionDuration = timeProvider.now() - session.createdAt
-        if (SESSION_MAX_DURATION_MS < sessionDuration || sessionDuration < 0) {
-            Log.d(TAG, "Duration of session (${sessionDuration}MS) exceeded max duration ($SESSION_MAX_DURATION_MS). DONT continue this session")
+        if (configService.maxSessionDuration.inWholeMilliseconds < sessionDuration || sessionDuration < 0) {
+            logger.debug("Duration of session (${sessionDuration}MS) exceeded max duration (${configService.maxSessionDuration.inWholeMilliseconds}). DONT continue this session")
             return false
         }
 
         if (session.lastEventTime > 0) {
             val timeSinceLastEvent = timeProvider.now() - session.lastEventTime
-            Log.d(TAG, "Last event time: ${session.lastEventTime}, Time since last event: $timeSinceLastEvent, max time since last event: ${SESSION_MAX_TIME_SINCE_EVENT}. If true continue this session: ${SESSION_MAX_TIME_SINCE_EVENT < timeSinceLastEvent || timeSinceLastEvent < 0}")
-            return timeSinceLastEvent in 0..<SESSION_MAX_TIME_SINCE_EVENT
+            logger.debug("Last event time: ${session.lastEventTime}, Time since last event: $timeSinceLastEvent, max time since last event: ${configService.maxSessionTimeBetweenEvents.inWholeMilliseconds}. If true continue this session: ${configService.maxSessionTimeBetweenEvents.inWholeMilliseconds < timeSinceLastEvent || timeSinceLastEvent < 0}")
+            return timeSinceLastEvent in 0..<configService.maxSessionTimeBetweenEvents.inWholeMilliseconds
         }
 
         return true
     }
 
     private fun createNewSession(): Session {
-        Log.d(TAG, "Creating new session")
+        logger.debug("Creating new session")
         val newSession = Session(
             id = idFactory.uuid(),
             createdAt = timeProvider.now()

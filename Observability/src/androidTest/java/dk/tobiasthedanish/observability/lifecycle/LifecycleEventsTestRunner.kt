@@ -8,6 +8,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import dk.tobiasthedanish.observability.Observability
+import dk.tobiasthedanish.observability.ObservabilityConfig
 import dk.tobiasthedanish.observability.ObservabilityConfigInternal
 import dk.tobiasthedanish.observability.events.EventStore
 import dk.tobiasthedanish.observability.events.EventStoreImpl
@@ -69,6 +70,8 @@ internal class LifecycleEventsTestRunner {
 
     fun initObservability() {
         val config = object : ObservabilityConfigInternal {
+            private val manifestReader = ManifestReaderImpl(application)
+            override val configService: ConfigService = ConfigServiceImpl(manifestReader, ObservabilityConfig())
             private val scheduler: Scheduler = SchedulerImpl(Executors.newSingleThreadScheduledExecutor(), CoroutineScope(Dispatchers.IO))
             private val ticker: Ticker = TickerImpl(scheduler)
             private val idFactory: IdFactory = IdFactoryImpl()
@@ -88,6 +91,7 @@ internal class LifecycleEventsTestRunner {
                 idFactory = idFactory,
                 sessionStore = sessionStore,
                 db = database,
+                configService = configService,
             )
             override val traceStore = TraceStoreImpl(sessionManager, database)
             override val resourceUsageStore: ResourceUsageStore = ResourceUsageStoreImpl(
@@ -104,10 +108,6 @@ internal class LifecycleEventsTestRunner {
             override val traceFactory: TraceFactory = TraceFactoryImpl(
                 timeProvider, traceCollector, idFactory
             )
-
-            private val manifestReader = ManifestReaderImpl(application)
-
-            override val configService: ConfigService = ConfigServiceImpl(manifestReader)
             private val httpService = InternalHttpClientImpl(HttpClientFactory.client, env = configService,)
             override val installationManager = InstallationManagerImpl(
                 preferencesDataStore = localPreferencesDataStore,
@@ -122,7 +122,8 @@ internal class LifecycleEventsTestRunner {
                 database = database,
                 sessionManager = sessionManager,
                 installationManager = installationManager,
-                scheduler = scheduler
+                scheduler = scheduler,
+                configService = configService,
             )
             override val eventTracker: EventTracker = EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)

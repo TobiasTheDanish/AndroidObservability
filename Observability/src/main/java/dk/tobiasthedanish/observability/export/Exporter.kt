@@ -13,11 +13,11 @@ import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.scheduling.Ticker
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.storage.Database
+import dk.tobiasthedanish.observability.utils.ConfigService
 import dk.tobiasthedanish.observability.utils.Logger
 import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.time.Duration.Companion.seconds
 
 internal interface Exporter : Collector {
     fun resume()
@@ -26,7 +26,6 @@ internal interface Exporter : Collector {
     fun exportSessionCrash(sessionId: String)
 }
 
-private const val DEFAULT_TIME_BETWEEN_EXPORTS = 30
 private const val TAG = "ExporterImpl"
 
 internal class ExporterImpl(
@@ -36,6 +35,7 @@ internal class ExporterImpl(
     private val sessionManager: SessionManager,
     private val installationManager: InstallationManager,
     private val scheduler: Scheduler,
+    private val configService: ConfigService,
     private val log: Logger = Logger(TAG)
 ) : Exporter {
     private var isRegistered = AtomicBoolean(false)
@@ -43,7 +43,7 @@ internal class ExporterImpl(
 
     override fun resume() {
         if (isRegistered.get()) {
-            ticker.start(DEFAULT_TIME_BETWEEN_EXPORTS.seconds.inWholeMilliseconds) {
+            ticker.start(configService.timeBetweenExports.inWholeMilliseconds) {
                 export()
             }
         }
