@@ -84,7 +84,7 @@ internal interface ObservabilityConfigInternal {
     val resourceUsageStore: ResourceUsageStore
 }
 
-internal class ObservabilityConfigInternalImpl(application: Application) :
+internal class ObservabilityConfigInternalImpl(application: Application, userConfig: ObservabilityConfig) :
     ObservabilityConfigInternal {
     private val database: Database = DatabaseImpl(application)
     private val idFactory: IdFactory = IdFactoryImpl()
@@ -100,7 +100,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
 
     private val manifestReader: ManifestReader = ManifestReaderImpl(application)
     override val timeProvider: TimeProvider = AndroidTimeProvider()
-    override val configService: ConfigService = ConfigServiceImpl(manifestReader)
+    override val configService: ConfigService = ConfigServiceImpl(manifestReader, userConfig)
     override val resourceUsageCollector: ResourceUsageCollector = ResourceUsageCollectorImpl(
         ticker = TickerImpl(scheduler),
         memoryInspector = AndroidMemoryInspector(Runtime.getRuntime()),
@@ -111,6 +111,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         idFactory = idFactory,
         sessionStore = sessionStore,
         db = database,
+        configService = configService,
     )
     override val resourceUsageStore: ResourceUsageStore = ResourceUsageStoreImpl(
         db = database,
@@ -134,6 +135,7 @@ internal class ObservabilityConfigInternalImpl(application: Application) :
         sessionManager = sessionManager,
         installationManager = installationManager,
         scheduler = scheduler,
+        configService = configService,
     )
     override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
     override val eventTracker: EventTracker = EventTrackerImpl(
@@ -217,6 +219,10 @@ internal class ObservabilityInternal(config: ObservabilityConfigInternal): AppLi
         lifecycleManager.register()
         navigationManager.addCollector(navigationCollector)
         isInitialized = true
+
+        if (configService.autoStart) {
+            start()
+        }
     }
 
     fun start() {

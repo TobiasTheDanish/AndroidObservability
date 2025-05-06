@@ -7,6 +7,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import dk.tobiasthedanish.observability.Observability
+import dk.tobiasthedanish.observability.ObservabilityConfig
 import dk.tobiasthedanish.observability.ObservabilityConfigInternal
 import dk.tobiasthedanish.observability.events.EventStore
 import dk.tobiasthedanish.observability.events.EventStoreImpl
@@ -64,6 +65,7 @@ class TracingTestRunner {
 
         val config = object : ObservabilityConfigInternal {
             private val manifestReader = ManifestReaderImpl(application)
+            override val configService: ConfigService = ConfigServiceImpl(manifestReader, ObservabilityConfig())
             private val scheduler: Scheduler = SchedulerImpl(
                 Executors.newSingleThreadScheduledExecutor(),
                 CoroutineScope(Dispatchers.IO)
@@ -87,6 +89,7 @@ class TracingTestRunner {
                 idFactory = idFactory,
                 sessionStore = sessionStore,
                 db = database,
+                configService = configService,
             )
             override val traceStore = TraceStoreImpl(sessionManager, database)
             override val resourceUsageStore: ResourceUsageStore = ResourceUsageStoreImpl(
@@ -106,7 +109,6 @@ class TracingTestRunner {
             )
             override val cleanupService: CleanupService =
                 CleanupServiceImpl(database, sessionManager)
-            override val configService: ConfigService = ConfigServiceImpl(manifestReader)
             private val httpService =
                 InternalHttpClientImpl(HttpClientFactory.client, configService)
             override val installationManager: InstallationManager = InstallationManagerImpl(
@@ -116,7 +118,15 @@ class TracingTestRunner {
                 httpService = httpService
             )
             override val exporter: Exporter =
-                ExporterImpl(ticker, httpService, database, sessionManager, installationManager, scheduler)
+                ExporterImpl(
+                    ticker = ticker,
+                    httpService = httpService,
+                    database = database,
+                    sessionManager = sessionManager,
+                    installationManager = installationManager,
+                    scheduler = scheduler,
+                        configService = configService,
+                )
             override val eventTracker: EventTracker =
                 EventTrackerImpl(eventStore = eventStore, sessionManager, exporter = exporter)
             override val lifecycleManager: LifecycleManager = LifecycleManager(application)

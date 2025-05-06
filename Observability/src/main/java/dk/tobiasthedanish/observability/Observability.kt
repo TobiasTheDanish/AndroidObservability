@@ -15,12 +15,12 @@ object Observability {
     private lateinit var observability: ObservabilityInternal
 
     @JvmStatic
-    //@JvmOverloads
-    fun init (context: Context) {
+    @JvmOverloads
+    fun init (context: Context, config: ObservabilityConfig = ObservabilityConfig()) {
         if (isInitialized.compareAndSet(false, true)) {
             val application = context.applicationContext as Application
 
-            observability = ObservabilityInternal(ObservabilityConfigInternalImpl(application))
+            observability = ObservabilityInternal(ObservabilityConfigInternalImpl(application, config))
             observability.init()
         }
     }
