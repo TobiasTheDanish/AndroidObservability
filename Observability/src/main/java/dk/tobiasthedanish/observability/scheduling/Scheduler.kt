@@ -1,6 +1,6 @@
 package dk.tobiasthedanish.observability.scheduling
 
-import android.util.Log
+import dk.tobiasthedanish.observability.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
@@ -26,18 +26,19 @@ private const val TAG = "SchedulerImpl"
 internal class SchedulerImpl(
     private val executorService: ScheduledExecutorService,
     private val scope: CoroutineScope,
+    private val logger: Logger = Logger(TAG)
 ): Scheduler {
     override fun <T> start(callable: Callable<T>): Future<T> {
-        Log.d(TAG, "start called with callable")
+        logger.debug("start called with callable")
         return executorService.submit(callable)
     }
 
     override fun <T> start(block: suspend () -> T): Future<T> {
-        Log.d(TAG, "start called with suspend block")
+        logger.debug("start called with suspend block")
         return scope.async {
-            Log.d(TAG, "Start of suspend block")
+            logger.debug("Start of suspend block")
             val res = block()
-            Log.d(TAG, "End of suspend block")
+            logger.debug("End of suspend block")
             res
         }.asCompletableFuture()
     }

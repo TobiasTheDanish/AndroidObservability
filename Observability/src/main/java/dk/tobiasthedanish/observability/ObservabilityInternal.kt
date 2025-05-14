@@ -127,6 +127,7 @@ internal class ObservabilityConfigInternalImpl(application: Application, userCon
         idFactory = idFactory,
         scheduler = scheduler,
         httpService = httpService,
+        timeProvider = timeProvider,
     )
     override val exporter: Exporter = ExporterImpl(
         ticker = TickerImpl(scheduler),

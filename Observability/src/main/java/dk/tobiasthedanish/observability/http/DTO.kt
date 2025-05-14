@@ -46,6 +46,7 @@ internal data class InstallationDTO(
     val sdkVersion: Int,
     val model: String,
     val brand: String,
+    val createdAt: Long,
 )
 
 @Serializable

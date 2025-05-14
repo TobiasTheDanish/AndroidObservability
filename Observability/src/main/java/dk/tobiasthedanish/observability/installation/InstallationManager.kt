@@ -6,6 +6,7 @@ import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InstallationDTO
 import dk.tobiasthedanish.observability.http.InternalHttpClient
 import dk.tobiasthedanish.observability.scheduling.Scheduler
+import dk.tobiasthedanish.observability.time.TimeProvider
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.LocalPreferencesDataStore
 import java.util.concurrent.Future
@@ -23,6 +24,7 @@ internal class InstallationManagerImpl(
     private val idFactory: IdFactory,
     private val scheduler: Scheduler,
     private val httpService: InternalHttpClient,
+    private val timeProvider: TimeProvider,
 ): InstallationManager {
     private var _installationId: String? = null
 
@@ -48,6 +50,7 @@ internal class InstallationManagerImpl(
                 sdkVersion = Build.VERSION.SDK_INT,
                 model = Build.MODEL,
                 brand = Build.BRAND,
+                createdAt = timeProvider.now()
             ))
             when (response) {
                 is HttpResponse.Success -> Log.i(TAG, "Installation exported successfully")

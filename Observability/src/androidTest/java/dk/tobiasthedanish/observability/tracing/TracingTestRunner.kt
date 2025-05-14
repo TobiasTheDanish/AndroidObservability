@@ -115,7 +115,8 @@ class TracingTestRunner {
                 preferencesDataStore = localPreferencesDataStore,
                 idFactory = idFactory,
                 scheduler = scheduler,
-                httpService = httpService
+                httpService = httpService,
+                timeProvider = timeProvider,
             )
             override val exporter: Exporter =
                 ExporterImpl(

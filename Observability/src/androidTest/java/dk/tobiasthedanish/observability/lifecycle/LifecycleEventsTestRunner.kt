@@ -114,6 +114,7 @@ internal class LifecycleEventsTestRunner {
                 idFactory = idFactory,
                 scheduler = scheduler,
                 httpService = httpService,
+                timeProvider = timeProvider,
             )
             override val cleanupService: CleanupService = CleanupServiceImpl(database, sessionManager)
             override val exporter: Exporter = ExporterImpl(
