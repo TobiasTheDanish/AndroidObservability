@@ -1,7 +1,6 @@
 package dk.tobiasthedanish.observability.installation
 
 import android.os.Build
-import android.util.Log
 import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InstallationDTO
 import dk.tobiasthedanish.observability.http.InternalHttpClient
@@ -9,6 +8,7 @@ import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.time.TimeProvider
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.LocalPreferencesDataStore
+import dk.tobiasthedanish.observability.utils.Logger
 import java.util.concurrent.Future
 
 internal interface InstallationManager {
@@ -25,6 +25,7 @@ internal class InstallationManagerImpl(
     private val scheduler: Scheduler,
     private val httpService: InternalHttpClient,
     private val timeProvider: TimeProvider,
+    private val logger: Logger = Logger(TAG),
 ): InstallationManager {
     private var _installationId: String? = null
 
@@ -53,8 +54,8 @@ internal class InstallationManagerImpl(
                 createdAt = timeProvider.now()
             ))
             when (response) {
-                is HttpResponse.Success -> Log.i(TAG, "Installation exported successfully")
-                is HttpResponse.Error -> Log.e(TAG, "Failed to export installation id")
+                is HttpResponse.Success -> logger.info("Installation exported successfully")
+                is HttpResponse.Error -> logger.error("Failed to export installation id")
             }
         }
 
