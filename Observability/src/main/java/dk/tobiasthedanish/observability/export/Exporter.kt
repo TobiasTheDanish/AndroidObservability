@@ -160,7 +160,7 @@ internal class ExporterImpl(
             scheduler.start {
                 try {
                     val data = database.getDataForExport(sessionId)
-                    if (data.sessionEntity == null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty()) {
+                    if (data.sessionEntity == null && data.eventEntities.isEmpty() && data.traceEntities.isEmpty() && data.memoryUsageEntities.isEmpty()) {
                         log.info("No data to export returning early")
                         return@start
                     }
