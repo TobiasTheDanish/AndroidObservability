@@ -82,6 +82,23 @@ object Observability {
         return null
     }
 
+    /**
+     * Creates and starts a trace with the given [name].
+     * If the provided [parent] is not null, then that trace is set as the parent of the trace started in this function.
+     * The trace is then passed to the function provided by [block].
+     * When [block] returns the trace is ended, and the result of block is returned.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun <T> traceFun(name: String, parent: Trace? = null, block: (Trace?) -> T): T {
+        val trace = startTrace(name)
+        if (parent != null) trace?.setParent(parent)
+        val res = block(trace)
+        trace?.end()
+
+        return res
+    }
+
     @VisibleForTesting
     internal fun initInstrumentationTest(configInternal: ObservabilityConfigInternal) {
         this.stop()
