@@ -25,4 +25,14 @@ data class ObservabilityConfig(
      * Defaults to 20 minutes
      */
     val maxSessionTimeBetweenEvents: Duration = 20.minutes,
+    /**
+     * Set the max number of events stored in memory before flushing to the database.
+     * Defaults to 30.
+     */
+    val maxEventsStoredBeforeFlush: Int = 30,
+    /**
+     * Set the max number of traces stored in memory before flushing to the database.
+     * Defaults to 30.
+     */
+    val maxTracesStoredBeforeFlush: Int = 30,
 )

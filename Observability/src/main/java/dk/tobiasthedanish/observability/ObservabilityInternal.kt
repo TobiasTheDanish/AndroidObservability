@@ -138,7 +138,11 @@ internal class ObservabilityConfigInternalImpl(application: Application, userCon
         scheduler = scheduler,
         configService = configService,
     )
-    override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
+    override val eventStore: EventStore = EventStoreImpl(
+        db = database,
+        idFactory = idFactory,
+        configService = configService,
+    )
     override val eventTracker: EventTracker = EventTrackerImpl(
         eventStore = eventStore,
         sessionManager = sessionManager,
@@ -147,6 +151,7 @@ internal class ObservabilityConfigInternalImpl(application: Application, userCon
     override val traceStore: TraceStore = TraceStoreImpl(
         sessionManager = sessionManager,
         db = database,
+        configService = configService,
     )
     override val traceCollector: TraceCollector = TraceCollectorImpl(
         traceStore = traceStore,

@@ -4,6 +4,7 @@ import android.util.Log
 import dk.tobiasthedanish.observability.session.SessionManager
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.TraceEntity
+import dk.tobiasthedanish.observability.utils.ConfigService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -16,10 +17,11 @@ private const val TAG = "TraceStoreImpl"
 
 internal class TraceStoreImpl(
     private val sessionManager: SessionManager,
-    private val db: Database
+    private val db: Database,
+    private val configService: ConfigService,
 ): TraceStore {
     private val queue by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        LinkedBlockingQueue<TraceEntity>(30)
+        LinkedBlockingQueue<TraceEntity>(configService.maxTracesStoredBeforeFlush)
     }
     private var isFlushing = AtomicBoolean(false)
 

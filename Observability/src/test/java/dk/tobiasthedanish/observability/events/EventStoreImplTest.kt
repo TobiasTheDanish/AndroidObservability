@@ -1,5 +1,6 @@
 package dk.tobiasthedanish.observability.events
 
+import dk.tobiasthedanish.observability.utils.ConfigService
 import dk.tobiasthedanish.observability.utils.IdFactory
 import kotlinx.serialization.Serializable
 import org.junit.Assert.*
@@ -16,10 +17,14 @@ class EventStoreImplTest {
     private val mockIdFactory = mock<IdFactory> {
         on { uuid() }.thenReturn("Very unique id")
     }
+    private val mockConfigService = mock<ConfigService> {
+        on { maxEventsStoredBeforeFlush }.thenReturn(30)
+    }
 
     private val store: EventStore = EventStoreImpl(
         db = mock(),
         idFactory = mockIdFactory,
+        configService = mockConfigService,
         logger = mock(),
     )
 

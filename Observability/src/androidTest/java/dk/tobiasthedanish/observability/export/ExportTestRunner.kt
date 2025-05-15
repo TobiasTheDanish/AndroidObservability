@@ -77,7 +77,7 @@ class ExportTestRunner {
                 database,
                 CoroutineScope(Dispatchers.IO)
             )
-            override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory)
+            override val eventStore: EventStore = EventStoreImpl(db = database, idFactory = idFactory, configService)
 
             override val timeProvider: TimeProvider = AndroidTimeProvider()
             override val sessionManager: SessionManager = SessionManagerImpl(
@@ -87,7 +87,7 @@ class ExportTestRunner {
                 db = database,
                 configService = configService,
             )
-            override val traceStore = TraceStoreImpl(sessionManager, database)
+            override val traceStore = TraceStoreImpl(sessionManager, database, configService)
             override val resourceUsageStore: ResourceUsageStore = ResourceUsageStoreImpl(
                 database,
                 sessionManager,

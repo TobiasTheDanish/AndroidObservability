@@ -6,6 +6,7 @@ import dk.tobiasthedanish.observability.lifecycle.AppLifecycleEvent
 import dk.tobiasthedanish.observability.navigation.NavigationEvent
 import dk.tobiasthedanish.observability.storage.Database
 import dk.tobiasthedanish.observability.storage.EventEntity
+import dk.tobiasthedanish.observability.utils.ConfigService
 import dk.tobiasthedanish.observability.utils.IdFactory
 import dk.tobiasthedanish.observability.utils.Logger
 import dk.tobiasthedanish.observability.utils.isUnhandledException
@@ -27,10 +28,11 @@ private const val TAG = "EventStoreImpl"
 internal class EventStoreImpl(
     private val db: Database,
     private val idFactory: IdFactory,
+    private val configService: ConfigService,
     private val logger: Logger = Logger(TAG),
 ): EventStore {
     private val queue by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        LinkedBlockingQueue<EventEntity>(30)
+        LinkedBlockingQueue<EventEntity>(configService.maxEventsStoredBeforeFlush)
     }
     private var isFlushing = AtomicBoolean(false)
 

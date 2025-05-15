@@ -11,6 +11,8 @@ internal interface ConfigService {
     val timeBetweenExports: Duration
     val maxSessionDuration: Duration
     val maxSessionTimeBetweenEvents: Duration
+    val maxEventsStoredBeforeFlush: Int
+    val maxTracesStoredBeforeFlush: Int
 
     fun init(): Boolean
 }
@@ -26,14 +28,12 @@ internal class ConfigServiceImpl(
     override lateinit var apiKey: String
 
     // USER CONFIG KEYS
-    override val autoStart: Boolean
-        get() = userConfig.autoStart
-    override val timeBetweenExports: Duration
-        get() = userConfig.timeBetweenExports
-    override val maxSessionDuration: Duration
-        get() = userConfig.maxSessionDuration
-    override val maxSessionTimeBetweenEvents: Duration
-        get() = userConfig.maxSessionTimeBetweenEvents
+    override val autoStart: Boolean by lazy { userConfig.autoStart }
+    override val timeBetweenExports: Duration by lazy { userConfig.timeBetweenExports }
+    override val maxSessionDuration: Duration by lazy { userConfig.maxSessionDuration }
+    override val maxSessionTimeBetweenEvents: Duration by lazy { userConfig.maxSessionTimeBetweenEvents }
+    override val maxEventsStoredBeforeFlush: Int by lazy { userConfig.maxEventsStoredBeforeFlush }
+    override val maxTracesStoredBeforeFlush: Int by lazy { userConfig.maxTracesStoredBeforeFlush }
 
     override fun init(): Boolean {
         manifestReader.read()?.let {
