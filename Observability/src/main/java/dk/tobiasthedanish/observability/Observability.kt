@@ -4,37 +4,36 @@ import android.app.Application
 import android.content.Context
 import androidx.annotation.VisibleForTesting
 import dk.tobiasthedanish.observability.tracing.Trace
-import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+import org.jetbrains.annotations.TestOnly
 
 object Observability {
-    private val isInitialized = AtomicBoolean(false)
+    @PublishedApi internal val isInitialized = AtomicBoolean(false)
 
     private lateinit var observability: ObservabilityInternal
 
     @JvmStatic
     @JvmOverloads
-    fun init (context: Context, config: ObservabilityConfig = ObservabilityConfig()) {
+    fun init(context: Context, config: ObservabilityConfig = ObservabilityConfig()) {
         if (isInitialized.compareAndSet(false, true)) {
             val application = context.applicationContext as Application
 
-            observability = ObservabilityInternal(ObservabilityConfigInternalImpl(application, config))
+            observability =
+                    ObservabilityInternal(ObservabilityConfigInternalImpl(application, config))
             observability.init()
         }
     }
 
     @JvmStatic
     fun start() {
-        if (isInitialized.get())
-            observability.start()
+        if (isInitialized.get()) observability.start()
     }
 
     @JvmStatic
     fun stop() {
-        if (isInitialized.get())
-            observability.stop()
+        if (isInitialized.get()) observability.stop()
     }
 
     @JvmStatic
@@ -60,7 +59,7 @@ object Observability {
     }
 
     @JvmStatic
-    fun <T: Any> trackEvent(data: T, kType: KType) {
+    fun <T : Any> trackEvent(data: T, kType: KType) {
         if (isInitialized.get()) {
             observability.trackEvent(data, kType)
         }
@@ -83,10 +82,10 @@ object Observability {
     }
 
     /**
-     * Creates and starts a trace with the given [name].
-     * If the provided [parent] is not null, then that trace is set as the parent of the trace started in this function.
-     * The trace is then passed to the function provided by [block].
-     * When [block] returns the trace is ended, and the result of block is returned.
+     * Creates and starts a trace with the given [name]. If the provided [parent] is not null, then
+     * that trace is set as the parent of the trace started in this function. The trace is then
+     * passed to the function provided by [block]. When [block] returns the trace is ended, and the
+     * result of block is returned.
      */
     @JvmStatic
     @JvmOverloads
@@ -95,6 +94,30 @@ object Observability {
         if (parent != null) trace?.setParent(parent)
         val res = block(trace)
         trace?.end()
+
+        return res
+    }
+
+    /**
+     * Creates and starts a trace with the given [name]. If the provided [parent] is not null, then
+     * that trace is set as the parent of the trace started in this function. The trace is then
+     * passed to the function provided by [block]. When [block] returns the trace is ended, and the
+     * result of block is returned.
+     *
+     * @throw IllegalArgumentException if init has not been called
+     */
+    @JvmStatic
+    @JvmOverloads
+    inline fun <reified T> traceFun(name: String, parent: Trace? = null, block: (Trace) -> T): T {
+        require(isInitialized.get()) { "Cannot trace if Observability is not initialized!" }
+
+        val trace =
+                requireNotNull(createTrace(name)) {
+                    "Cannot trace if Observability is not initialized!"
+                }
+        if (parent != null) trace.setParent(parent)
+        val res = block(trace)
+        trace.end()
 
         return res
     }
@@ -119,6 +142,7 @@ object Observability {
     }
 }
 
-inline fun <reified T:Any> Observability.trackEvent(data: T) {
+inline fun <reified T : Any> Observability.trackEvent(data: T) {
     trackEvent(data, typeOf<T>())
 }
+
