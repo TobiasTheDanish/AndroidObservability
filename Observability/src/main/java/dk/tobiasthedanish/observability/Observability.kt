@@ -89,7 +89,7 @@ object Observability {
      */
     @JvmStatic
     @JvmOverloads
-    fun <T> traceFun(name: String, parent: Trace? = null, block: (Trace?) -> T): T {
+    fun <T> nullableTraceFun(name: String, parent: Trace? = null, block: (Trace?) -> T): T {
         val trace = startTrace(name)
         if (parent != null) trace?.setParent(parent)
         val res = block(trace)
