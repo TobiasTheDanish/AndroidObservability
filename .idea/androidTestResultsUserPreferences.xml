@@ -178,6 +178,7 @@
               <option name="preferredColumnWidths">
                 <map>
                   <entry key="Duration" value="306" />
+                  <entry key="Medium_Phone_API_36.0" value="120" />
                   <entry key="Pixel_5_API_34" value="336" />
                   <entry key="Tests" value="576" />
                 </map>

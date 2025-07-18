@@ -3,6 +3,7 @@ package dk.tobiasthedanish.observability.installation
 import android.os.Build
 import dk.tobiasthedanish.observability.http.HttpResponse
 import dk.tobiasthedanish.observability.http.InstallationDTO
+import dk.tobiasthedanish.observability.http.InstallationDataDTO
 import dk.tobiasthedanish.observability.http.InternalHttpClient
 import dk.tobiasthedanish.observability.scheduling.Scheduler
 import dk.tobiasthedanish.observability.time.TimeProvider
@@ -48,9 +49,11 @@ internal class InstallationManagerImpl(
             preferencesDataStore.setInstallationId(newId)
             val response = httpService.exportInstallation(InstallationDTO(
                 id = newId,
-                sdkVersion = Build.VERSION.SDK_INT,
-                model = Build.MODEL,
-                brand = Build.BRAND,
+                data = InstallationDataDTO(
+                    sdkVersion = Build.VERSION.SDK_INT,
+                    model = Build.MODEL,
+                    brand = Build.BRAND,
+                ),
                 createdAt = timeProvider.now()
             ))
             when (response) {

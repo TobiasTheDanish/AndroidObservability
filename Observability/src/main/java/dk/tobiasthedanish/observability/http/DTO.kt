@@ -43,10 +43,15 @@ internal data class TraceDTO(
 @Serializable
 internal data class InstallationDTO(
     val id: String,
+    val data: InstallationDataDTO,
+    val createdAt: Long,
+)
+
+@Serializable
+internal data class InstallationDataDTO(
     val sdkVersion: Int,
     val model: String,
     val brand: String,
-    val createdAt: Long,
 )
 
 @Serializable
