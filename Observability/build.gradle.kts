@@ -117,6 +117,7 @@ dependencies {
     testImplementation(libs.androidx.ui.test.junit4)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.squareup.okhttp.mockwebserver)
 
     androidTestImplementation(libs.androidx.activity.compose)
     androidTestImplementation(libs.androidx.navigation.compose)
