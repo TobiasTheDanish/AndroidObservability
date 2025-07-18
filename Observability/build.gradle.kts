@@ -10,12 +10,12 @@ plugins {
 
 android {
     namespace = "dk.tobiasthedanish.observability"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 21
-        testOptions.targetSdk = 35
-        version = "1.0.0-alpha.4"
+        testOptions.targetSdk = 36
+        version = "1.0.0-alpha.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
